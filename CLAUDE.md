@@ -29,7 +29,8 @@
 **לפני מסירה: צילום מסך עם אריחים אמיתיים (בלי מוק) ובדיקה בעין שהמפה והשביל מופיעים.**
 
 ## פריסה
-Vercel מהענף main. מיזוג PR ל-main אחרי בדיקה ירוקה, בלי לשאול (אישור קבוע של ענת).
+Vercel, פרויקט `shvilisrael-gh`, כתובת https://shvilisrael-gh.vercel.app. מיזוג PR ל-main אחרי בדיקה ירוקה, בלי לשאול (אישור קבוע של ענת).
+הריפו נוצר ריק, ולכן ענף ברירת המחדל ב-GitHub הוא `claude/nifty-wozniak-bqp15f` ו-Vercel פורס ממנו לייצור. כדי ש-main יהיה ענף הייצור: להגדיר את main כ-Default branch ב-GitHub (Settings, Branches) ואז ב-Vercel (Settings, Environments, Production branch).
 
 ## תיקונים של ענת
 (עדיין אין. כל תיקון נרשם כאן עם תאריך.)
