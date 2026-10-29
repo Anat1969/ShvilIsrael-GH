@@ -305,10 +305,43 @@ def build_climate():
               open(os.path.join(GEN, 'climate.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
 
 
+def build_climate_power():
+    """גיבוי כש-Open-Meteo חסום: NASA POWER (MERRA-2), יומי 2015 עד 2024, רזולוציה 0.5 על 0.625 מעלות.
+    הטמפרטורה מתוקנת לגובה המקטע לפי 6.5 מעלות לק"מ, ביחס לגובה התא של POWER."""
+    import collections
+    stats = json.load(open(os.path.join(GEN, 'stats.json')))
+    out = {}
+    for s in stats['sections']:
+        la, lo = s['mid']
+        ele = profile_mid_ele(s['n'])
+        url = ('https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M_MAX,T2M_MIN,PRECTOTCORR&community=RE'
+               f'&longitude={lo}&latitude={la}&start=20150101&end=20241231&format=JSON')
+        d = cached(f"power-{s['n']}.json", lambda: (time.sleep(1), get(url))[1])
+        cell = d['geometry']['coordinates'][2]
+        corr = -6.5 * (ele - cell) / 1000
+        P = d['properties']['parameter']
+        agg = collections.defaultdict(lambda: collections.defaultdict(list))
+        for key in ('T2M_MAX', 'T2M_MIN', 'PRECTOTCORR'):
+            for day, v in P[key].items():
+                if v != -999:
+                    agg[key][int(day[4:6]) - 1].append(v)
+        years = 10
+        out[s['n']] = {
+            'tmax': [round(sum(agg['T2M_MAX'][m]) / len(agg['T2M_MAX'][m]) + corr, 1) for m in range(12)],
+            'tmin': [round(sum(agg['T2M_MIN'][m]) / len(agg['T2M_MIN'][m]) + corr, 1) for m in range(12)],
+            'rain': [round(sum(agg['PRECTOTCORR'][m]) / years) for m in range(12)],
+            'rainDays': [round(sum(1 for v in agg['PRECTOTCORR'][m] if v >= 1) / years, 1) for m in range(12)],
+        }
+        print(f"  power #{s['n']}: cell {cell:.0f}m trail {ele}m corr {corr:+.1f}  Jan {out[s['n']]['tmax'][0]} Jul {out[s['n']]['tmax'][6]} rain/yr {sum(out[s['n']]['rain'])}")
+    json.dump({'source': 'NASA POWER (MERRA-2), daily 2015-2024, ~50 km grid, temperature adjusted to trail elevation (6.5°C/km)',
+               'resolutionKm': 50, 'sections': out},
+              open(os.path.join(GEN, 'climate.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
+
+
 # ---------------------------------------------------------------- nature
 SPECIES = [
     # (שם עברי, שם מדעי, סוג, הסבר קצר)
-    ('חצב מצוי', 'Drimia maritima', 'bloom', 'פריחתו בסוף הקיץ מבשרת את הסתיו, עוד לפני הגשם הראשון.'),
+    ('חצב מצוי', 'Drimia maritima', 'bloom', 'פריחתו בסוף הקיץ מבשרת את הסתיו, עוד לפני הגשם הראשון.', 1159146),  # בישראל מזוהה לרוב כקומפלקס
     ('חלמונית גדולה', 'Sternbergia clusiana', 'bloom', 'מבשרי הגשם: פרח צהוב גדול שעולה ישר מהאדמה בסתיו.'),
     ('סתוונית היורה', 'Colchicum stevenii', 'bloom', 'פורחת עם הגשמים הראשונים, ורודה ונמוכה.'),
     ('נרקיס מצוי', 'Narcissus tazetta', 'bloom', 'פריחת חורף ריחנית באדמות לחות ובשולי ביצות.'),
@@ -341,11 +374,13 @@ def inat(path):
 
 def build_nature():
     out = []
-    for he, sci, kind, note in SPECIES:
-        key = sci.replace(' ', '_')
-        tx = cached(f'inat-taxon-{key}.json', lambda: inat('taxa?rank=species&per_page=5&q=' + urllib.parse.quote(sci)))
-        taxon = next((t for t in tx['results'] if t['name'] == sci), tx['results'][0])
-        tid = taxon['id']
+    for he, sci, kind, note, *fixed in SPECIES:
+        key = sci.replace(' ', '_') + (f'_{fixed[0]}' if fixed else '')
+        if fixed:
+            tid = fixed[0]
+        else:
+            tx = cached(f'inat-taxon-{key}.json', lambda: inat('taxa?rank=species&per_page=5&q=' + urllib.parse.quote(sci)))
+            tid = next((t for t in tx['results'] if t['name'] == sci), tx['results'][0])['id']
         months = {}
         for band, (a, b) in [('all', (None, None))] + list(BANDS.items()):
             q = f'observations/histogram?taxon_id={tid}&place_id=6815&interval=month_of_year&quality_grade=research'
@@ -387,9 +422,32 @@ def wiki(entry):
     }
 
 
+def wiki_batch(entries):
+    """עד 20 ערכים בבקשה אחת (מגבלת extracts), כדי לא להיחסם בקצב."""
+    todo = [e for e in entries if not os.path.exists(os.path.join(CACHE, 'wiki-' + re.sub(r'\W', '_', e) + '.json'))]
+    for i in range(0, len(todo), 20):
+        chunk = todo[i:i + 20]
+        titles = '|'.join(e.split(':', 1)[1] for e in chunk)
+        url = ('https://he.wikipedia.org/w/api.php?action=query&format=json&redirects=1&prop=pageimages|extracts'
+               '&piprop=thumbnail&pithumbsize=960&pilimit=20&exintro=1&explaintext=1&exsentences=2&exlimit=20&titles=' + urllib.parse.quote(titles))
+        time.sleep(3)
+        d = get(url, tries=8)
+        q = d.get('query', {})
+        alias = {x['from']: x['to'] for x in q.get('normalized', []) + q.get('redirects', [])}
+        pages = {p['title']: p for p in q.get('pages', {}).values()}
+        for e in chunk:
+            t = e.split(':', 1)[1]
+            t2 = alias.get(t, t)
+            t2 = alias.get(t2, t2)
+            page = pages.get(t2, {'missing': ''})
+            json.dump({'query': {'pages': {'1': page}}}, open(os.path.join(CACHE, 'wiki-' + re.sub(r'\W', '_', e) + '.json'), 'w'))
+
+
 def build_photos():
     out = {}
-    for m in sections_meta():
+    meta = sections_meta()
+    wiki_batch([e for m in meta for e in m['wiki']])
+    for m in meta:
         items = [w for w in (wiki(e) for e in m['wiki']) if w]
         out[m['n']] = items
         print(f"  #{m['n']}: " + ', '.join(f"{w['title']}{' [img]' if w['src'] else ''}" for w in items))
@@ -401,4 +459,4 @@ if __name__ == '__main__':
     steps = sys.argv[1:] or ['trail', 'climate', 'nature', 'photos']
     for st in steps:
         print('==', st)
-        {'trail': build_trail, 'climate': build_climate, 'nature': build_nature, 'photos': build_photos}[st]()
+        {'trail': build_trail, 'climate': build_climate, 'power': build_climate_power, 'nature': build_nature, 'photos': build_photos}[st]()
