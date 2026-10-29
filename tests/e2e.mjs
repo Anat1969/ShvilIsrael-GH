@@ -115,11 +115,14 @@ await page.waitForTimeout(1500);
 const fk = Number(await page.locator('.s-map .tmap').getAttribute('data-fly-km'));
 ok(fk > 0 && (await page.locator('.fly').textContent()) === 'עצירת הטיסה', `flyover moves along the section (${fk} km)`);
 await page.screenshot({ path: `${SHOTS}/flyover.png` });
-await page.locator('.fly').click();
+// לחיצה ישירה: ב-WebGL תוכנתי עם תבליט, הלחיצה הרגילה של Playwright מחכה שניות ליציבות
+await page.evaluate(() => document.querySelector('.fly').click());
 await page.waitForTimeout(300);
 const fk2 = await page.locator('.s-map .tmap').getAttribute('data-fly-km');
 await page.waitForTimeout(500);
-ok((await page.locator('.fly').textContent()) === 'טיסה לאורך המקטע' && fk2 === await page.locator('.s-map .tmap').getAttribute('data-fly-km'), 'flyover stops');
+const fk3 = await page.locator('.s-map .tmap').getAttribute('data-fly-km');
+const flyText = await page.locator('.fly').textContent();
+ok(flyText === 'טיסה לאורך המקטע' && fk2 === fk3, `flyover stops (${flyText}, ${fk2} -> ${fk3})`);
 await page.locator('.s-head .seg button', { hasText: 'מדרום לצפון' }).click();
 await page.waitForTimeout(300);
 ok(new URL(page.url()).searchParams.get('dir') === 'sn' && (await page.locator('h1').textContent()).includes('הר מירון – ברעם'), 'south-to-north flips the section');

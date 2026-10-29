@@ -46,13 +46,15 @@ export default function SectionPage() {
     return pointAt(t.geom, reverse ? t.length - km : km);
   }, [km, t, reverse]);
 
+  const flyingRef = useRef(false);
   const fly = () => {
-    if (flying) { stopRef.current?.(); setFlying(false); return; }
+    if (flyingRef.current) { stopRef.current?.(); return; }
+    flyingRef.current = true;
     setFlying(true);
     stopRef.current = mapRef.current?.fly(s.n);
   };
   const onFly = (k) => {
-    if (k == null) { setFlying(false); setFlyKm(null); return; }
+    if (k == null) { flyingRef.current = false; setFlying(false); setFlyKm(null); return; }
     setFlyKm(reverse ? s.length - k : k);
   };
 
