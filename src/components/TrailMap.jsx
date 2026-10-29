@@ -63,6 +63,7 @@ const TrailMap = forwardRef(function TrailMap({ trail, focus, month, colorBy = '
   const map = useRef(null);
   const [ready, setReady] = useState(false);
   const fly = useRef(null);
+  const flyToken = useRef(null);
   const props = useRef({});
   props.current = { onSelect, onFly };
 
@@ -196,12 +197,24 @@ const TrailMap = forwardRef(function TrailMap({ trail, focus, month, colorBy = '
       const t = trail?.sections.find((x) => x.n === n);
       if (!m || !t) return () => {};
       cancelAnimationFrame(fly.current);
+      // אסימון לכל טיסה: לולאה ישנה או מאזין ישן לא יכולים להמשיך או לעצור טיסה חדשה
+      const token = {};
+      flyToken.current = token;
       const coords = reverse ? [...t.geom].reverse() : t.geom;
       const total = t.length;
       const ms = Math.min(42000, Math.max(14000, total * 1300));
       let t0 = null;
       let brg = m.getBearing();
+      const stop = () => {
+        if (flyToken.current !== token) return;
+        flyToken.current = null;
+        cancelAnimationFrame(fly.current);
+        m.off('mousedown', stop);
+        m.off('touchstart', stop);
+        props.current.onFly?.(null);
+      };
       const step = (now) => {
+        if (flyToken.current !== token) return;
         if (t0 == null) t0 = now;
         const p = Math.min(1, (now - t0) / ms);
         const eased = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
@@ -209,22 +222,21 @@ const TrailMap = forwardRef(function TrailMap({ trail, focus, month, colorBy = '
         const here = pointAt(coords, km);
         const ahead = pointAt(coords, Math.min(total, km + 0.6));
         const target = here[0] === ahead[0] && here[1] === ahead[1] ? brg : bearing(here, ahead);
-        let diff = ((target - brg + 540) % 360) - 180;
+        const diff = ((target - brg + 540) % 360) - 180;
         brg += diff * 0.06;
         m.jumpTo({ center: here, bearing: brg, pitch: 62, zoom: 13.6 });
         if (box.current) box.current.dataset.flyKm = km.toFixed(2);
         props.current.onFly?.(reverse ? total - km : km, here);
         if (p < 1) fly.current = requestAnimationFrame(step);
-        else props.current.onFly?.(null);
+        else stop();
       };
       m.setTerrain({ source: 'dem', exaggeration: 1.4 });
       fly.current = requestAnimationFrame(step);
-      const stop = () => { cancelAnimationFrame(fly.current); props.current.onFly?.(null); };
-      m.once('mousedown', stop);
-      m.once('touchstart', stop);
+      m.on('mousedown', stop);
+      m.on('touchstart', stop);
       return stop;
     },
-    stop() { cancelAnimationFrame(fly.current); },
+    stop() { flyToken.current = null; cancelAnimationFrame(fly.current); },
     get map() { return map.current; },
   }));
 
