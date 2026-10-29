@@ -87,7 +87,10 @@ export default function Profile({ data, bands = [], marker, onHover, onPick, hei
             <rect key={b.n ?? b.from} x={Math.min(x(b.from), x(b.to))} width={Math.abs(x(b.to) - x(b.from))} y="0" height={H} fill={b.color} opacity={b.dim ? 0.12 : 0.55} />
           ))}
         </g>
-        <motion.path d={path} fill="none" stroke="#1f2328" strokeWidth="1.6" vectorEffect="non-scaling-stroke" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.6, ease: 'easeInOut' }} />
+        <clipPath id={`${id}r`}>
+          <motion.rect y="0" height={H} initial={{ width: 0, x: ltr ? 0 : W }} animate={{ width: W, x: 0 }} transition={{ duration: 1.6, ease: 'easeInOut' }} />
+        </clipPath>
+        <path d={path} fill="none" stroke="#1f2328" strokeWidth="1.6" vectorEffect="non-scaling-stroke" clipPath={`url(#${id}r)`} />
         {shown != null && (
           <g>
             <line x1={x(shown)} x2={x(shown)} y1="0" y2={H - pad.b} className="pf-cursor" vectorEffect="non-scaling-stroke" />
