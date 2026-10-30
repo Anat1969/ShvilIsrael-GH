@@ -8,9 +8,10 @@ import MonthPicker from '../components/MonthPicker.jsx';
 import SeasonStrip from '../components/SeasonStrip.jsx';
 import ScaleLegend from '../components/ScaleLegend.jsx';
 import KindTag from '../components/KindTag.jsx';
+import Verdict from '../components/Verdict.jsx';
 import Photo from '../components/Photo.jsx';
 import { ALL, REGIONS, SUBREGIONS, OVERVIEW, TOTAL_KM, MONTHS, MONTHS_SHORT, loadTrail, sectionAtKm, fmt } from '../lib/data.js';
-import { suitability, SCALE, currentMonth } from '../lib/season.js';
+import { suitability, SCALE, currentMonth, difficulty } from '../lib/season.js';
 import { eventsInMonth, monthsText, KINDS } from '../lib/phenomena.js';
 import { moonEvents } from '../lib/moon.js';
 import { useWalked } from '../lib/walked.js';
@@ -120,8 +121,8 @@ export default function Home() {
                 </div>
                 <h3 className="small-head">התאמה לאורך השנה</h3>
                 <SeasonStrip s={f} month={month} labels />
-                <p className="chip" style={{ background: fr.color }}>{MONTHS[month - 1]}: {fr.bucket.name} · {Math.round(fr.score * 100)}</p>
-                <ul className="reasons">{fr.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+                <h3 className="small-head">חוות דעת ל{MONTHS[month - 1]}, ומה עומד מאחוריה</h3>
+                <Verdict s={f} r={fr} compact />
                 <div className="row">
                   <Link className="btn" to={`/s/${f.n}`}>לעמוד המקטע</Link>
                   <button className="btn-quiet" onClick={() => set('s', null)}>חזרה לכל השביל</button>
@@ -144,7 +145,7 @@ export default function Home() {
                     <li key={s.n}>
                       <button onClick={() => goTo(s.n)}>
                         <span className="pick-n mono" style={{ background: r.color }}>{s.n}</span>
-                        <span><b>{s.from} – {s.to}</b><small>{r.bucket.name}{r.bloom ? ' · שיא הפריחה' : ''}{r.t != null ? ` · כ-${Math.round(r.t)} מעלות ביום` : ''}</small></span>
+                        <span><b>{s.from} – {s.to}</b><small>{r.label}{r.t != null ? ` · כ-${Math.round(r.t)} מעלות ביום` : ''} · קושי: {difficulty(s).name}</small></span>
                       </button>
                     </li>
                   ))}
@@ -233,7 +234,7 @@ export default function Home() {
                           <span className="sec-n mono">{s.n}</span>
                           <span className="sec-name"><b>{s.from} – {s.to}</b><small>{s.sites.slice(0, 3).join(' · ')}</small></span>
                           <Spark s={s} />
-                          <span className="sec-km mono"><span><b>{fmt(s.length, 1)}</b> ק"מ</span><small>{fmt(s.up)}+ מ'</small></span>
+                          <span className="sec-km mono"><span><b>{fmt(s.length, 1)}</b> ק"מ</span><small className="sec-diff" style={{ color: difficulty(s).color }}>{difficulty(s).name}</small><small>{fmt(s.up)}+ מ'</small></span>
                           <SeasonStrip s={s} month={month} />
                         </button>
                       </li>

@@ -97,7 +97,7 @@ for (const n of Array.from({ length: 56 }, (_, i) => i + 1)) {
   await page.goto(`${ROOT}/s/${n}`);
   await page.waitForSelector('.tile');
   const h1 = await page.locator('h1').textContent();
-  ok((await page.locator('.tile').count()) === 6 && h1.includes(String(n)), `section ${n}: header and 6 metric tiles`);
+  ok((await page.locator('.tile').count()) === 7 && h1.includes(String(n)), `section ${n}: header and 7 metric tiles`);
   const href = await page.locator('a.btn', { hasText: 'המדריך הרשמי' }).getAttribute('href');
   if (!/^https:\/\/www\.teva\.org\.il\/israel-national-trail\/(id-)\d+$/.test(href)) ok(false, `section ${n}: official link ${href}`);
 }
@@ -107,6 +107,8 @@ await page.waitForSelector('.s-map .profile svg > path', { state: 'attached' });
 ok(await page.locator('.fc li').count() === 4, 'forecast shows 4 days');
 ok((await page.locator('.kind-col').count()) >= 3, 'section shows living, plants and land phenomena');
 ok((await page.locator('.strip-big .strip-months span').count()) === 12, 'year strip names every month');
+await page.locator('.strip-big .strip i').nth(6).click();
+ok(/יולי/.test(await page.locator('.s-grid .verdict-why').textContent()), 'clicking a month explains that month');
 ok(await page.locator('.fc li.hot').count() === 1, 'hot day (33) flagged in red');
 ok(await page.locator('.obs .ob').count() === 3, 'recent nature observations shown');
 await page.locator('.card-head .seg button', { hasText: 'ציפורים' }).click();
@@ -146,6 +148,10 @@ ok((await page.locator('.moon').count()) >= 24, 'year calendar shows new and ful
 ok((await page.locator('.scale-legend').count()) >= 2, 'graded scale legend shown');
 await page.locator('.mx-cell').nth(5 * 12 + 2).hover();
 ok(/מקטע 6 · מרץ/.test(await page.locator('.mx-detail').textContent()), 'hovering a cell explains it');
+await page.locator('.mx-cell').nth(33 * 12 + 6).hover();
+ok((await page.locator('.mx-detail .factors tbody tr').count()) >= 4, 'cell detail breaks the score into factors');
+ok(/בעיקר בגלל/.test(await page.locator('.mx-detail .verdict-why').textContent()) && /חום/.test(await page.locator('.mx-detail .verdict-why').textContent()), 'a July Dead Sea cell names heat as the main reason');
+ok(/קושי/.test(await page.locator('.mx-detail .diff').textContent()), 'difficulty shown separately');
 ok((await page.locator('.sp').count()) === nature.species.length, `all ${nature.species.length} species in the phenology section`);
 ok((await page.locator('.curves path').count()) >= nature.species.length, 'every species has curves');
 await page.goto(`${ROOT}/seasons#Anemone-coronaria`);

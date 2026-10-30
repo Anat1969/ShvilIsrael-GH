@@ -176,7 +176,7 @@ export default function PlanPage() {
             { key: 'hours', label: 'שעות', render: (r) => (r.km ? hours(r.hours) : '') },
             { key: 'sun', label: 'אור יום', render: (r) => (r.sun ? `${clock(r.sun.rise)}–${clock(r.sun.set)}` : ''), sort: (r) => r.sun?.daylight ?? 0 },
             { key: 't', label: 'חום ממוצע', render: (r) => (r.t != null ? `${Math.round(r.t)}°` : '') },
-            { key: 'score', label: 'התאמה', render: (r) => (r.suit ? <span className="chip" style={{ background: r.suit.color }}>{r.suit.bucket.name} · {Math.round(r.score * 100)}</span> : ''), sort: (r) => r.score ?? -1 },
+            { key: 'score', label: 'התאמה', render: (r) => (r.suit ? <span className="chip" style={{ background: r.suit.color }}>{r.suit.label}</span> : ''), sort: (r) => r.score ?? -1 },
           ]}
         />
         <p className="muted small">שעות לפי פונקציית ההליכה של טובלר, בלי הפסקות ובלי משקל תרמיל. ההתאמה לפי החודש ונקודת האמצע של היום. <Link to="/seasons#method">איך מחושב</Link>. התכנית נשמרת בדפדפן, וכתובת הדף משתפת אותה.</p>
@@ -216,7 +216,7 @@ function CalendarView({ days }) {
                     key={i}
                     className={`cal-day ${rest ? 'rest' : 'walk'}`}
                     style={rest ? undefined : { background: day.suit.color }}
-                    title={rest ? `יום ${day.i}: מנוחה` : `יום ${day.i}: מקטע ${sec.join(', ')}, ${fmt(day.km, 1)} ק"מ, ${day.suit.bucket.name}`}
+                    title={rest ? `יום ${day.i}: מנוחה` : `יום ${day.i}: מקטע ${sec.join(', ')}, ${fmt(day.km, 1)} ק"מ, ${day.suit.label}`}
                   >
                     <b>{d.getDate()}</b>
                     <small>{rest ? 'מנוחה' : `מק' ${sec.length > 1 ? `${sec[0]}–${sec[sec.length - 1]}` : sec[0]}`}</small>

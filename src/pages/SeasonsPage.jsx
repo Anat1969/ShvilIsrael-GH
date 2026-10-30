@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import ScaleLegend from '../components/ScaleLegend.jsx';
 import KindTag from '../components/KindTag.jsx';
+import Verdict from '../components/Verdict.jsx';
 import { ALL, REGIONS, SUBREGIONS, MONTHS, MONTHS_SHORT, nature, climate, fmt } from '../lib/data.js';
 import { suitability, scoreColor, currentMonth, BLOOM_COLOR } from '../lib/season.js';
 import { ALL_EVENTS, KINDS, monthsText } from '../lib/phenomena.js';
@@ -105,7 +106,7 @@ export default function SeasonsPage() {
                               role="cell"
                               className={`mx-cell ${m + 1 === now ? 'now' : ''} ${rr.bloom ? 'bloom' : ''}`}
                               style={{ background: rr.color }}
-                              aria-label={`${s.from} – ${s.to}, ${MONTHS[m]}: ${rr.bucket.name}`}
+                              aria-label={`${s.from} – ${s.to}, ${MONTHS[m]}: ${rr.label}`}
                               onMouseEnter={() => setCell({ s, m, r: rr })}
                               onFocus={() => setCell({ s, m, r: rr })}
                               onClick={() => setCell({ s, m, r: rr })}
@@ -125,8 +126,7 @@ export default function SeasonsPage() {
               <motion.div key={`${cell.s.n}-${cell.m}`} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
                 <p className="mono eyebrow">מקטע {cell.s.n} · {MONTHS[cell.m]}</p>
                 <h3>{cell.s.from} – {cell.s.to}</h3>
-                <p className="chip" style={{ background: cell.r.color }}>{cell.r.bucket.name} · {Math.round(cell.r.score * 100)}</p>
-                <ul className="reasons">{cell.r.reasons.map((x) => <li key={x}>{x}</li>)}</ul>
+                <Verdict s={cell.s} r={cell.r} compact />
                 <Link className="btn" to={`/s/${cell.s.n}`}>לעמוד המקטע</Link>
               </motion.div>
             ) : (
@@ -138,12 +138,16 @@ export default function SeasonsPage() {
       </section>
 
       <section className="method frame" id="method">
-        <h2>איך מחושב הציון</h2>
+        <h2>איך מחושב הציון, ומה הוא לא אומר</h2>
+        <p className="lead">הציון עונה על שאלה אחת: <b>עד כמה החודש הזה מתאים ללכת במקטע הזה</b>. הוא מתחיל מ-100, ומכל רכיב מופחתות או מתווספות נקודות. ליד כל דרגה מופיע הגורם המכריע, וכל פירוט מציג את כל הרכיבים, את הערך שנמדד ואת המקור.</p>
         <div className="method-grid">
           <div><b>1. עונה</b><p>בתוך העונה המומלצת במדריך של החברה להגנת הטבע: 100. מחוץ לה: 45.</p></div>
           <div><b>2. חום</b><p>ממוצע הטמפרטורה המרבית ביום, בנקודת האמצע של המקטע. עד 24 מעלות אין הפחתה; מ-24 עד 34 ההפחתה עולה בהדרגה עד 85.</p></div>
           <div><b>3. גשם</b><p>בצפון ובמרכז: מ-8 עד 16 ימי גשם בחודש ההפחתה עולה עד 35 (בוץ). במדבר הגשם מוסיף הערת שיטפונות ולא מוריד ציון, כי החורף הוא עונת השיא שם.</p></div>
-          <div><b>4. פריחה</b><p>בחודשי שיא הפריחה לפי המדריך: תוספת 10, ופס <span style={{ color: BLOOM_COLOR, fontWeight: 600 }}>סגול</span> בתחתית התא.</p></div>
+          <div><b>4. אור יום</b><p>אם זמן ההליכה עם מנוחות (פי 1.3 מהזמן לפי טובלר או נייסמית) לא נכנס בשעות האור פחות שעה: הפחתה עד 30.</p></div>
+          <div><b>5. חוויה עונתית</b><p>שיא פריחה לפי המדריך: תוספת 10, ופס <span style={{ color: BLOOM_COLOR, fontWeight: 600 }}>סגול</span> בתחתית התא. כל תופעה עונתית במקטע (נדידה, זרימה, שלג): תוספת 2, עד 6.</p></div>
+          <div><b>מה לא בציון: קושי</b><p>הקושי לא משתנה עם החודש, ולכן הוא מוצג בנפרד: <b>קילומטר־מאמץ</b> לפי השיטה השווייצרית, ק"מ ועוד עלייה חלקי 100. עד 15 קל, עד 22 בינוני, עד 30 מאתגר, מעל 30 קשה.</p></div>
+          <div><b>מה לא בציון: יופי</b><p>יופי הנוף הוא טעם אישי, ולא נמדד. מה שכן נמדד הוא מה קורה בנוף באותו חודש (פריחה, מים, נדידות), ברכיב החוויה העונתית.</p></div>
         </div>
         <p className="muted small">
           {climate.source ? `מקור האקלים: ${climate.source}.` : 'נתוני האקלים עדיין לא נטענו, ולכן הציון מבוסס כרגע רק על העונה הרשמית.'} מגבלות: ERA5 חם בכ-2 עד 3 מעלות בקיץ במישור החוף ובהרי ירושלים לעומת תחנות השירות המטאורולוגי.

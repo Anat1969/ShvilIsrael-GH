@@ -2,7 +2,7 @@ import { MONTHS, MONTHS_SHORT } from '../lib/data.js';
 import { suitability } from '../lib/season.js';
 
 /** 12 תאים, תא לכל חודש, בצבע סולם ההתאמה. ינואר מימין. labels: שם החודש מתחת לכל תא. */
-export default function SeasonStrip({ s, month, big = false, labels = big }) {
+export default function SeasonStrip({ s, month, big = false, labels = big, onPick, picked }) {
   return (
     <div className={`strip-wrap ${big ? 'strip-big' : ''}`}>
       <div className="strip" role="img" aria-label="התאמה לפי חודשים">
@@ -11,9 +11,10 @@ export default function SeasonStrip({ s, month, big = false, labels = big }) {
           return (
             <i
               key={m}
-              className={`${month === i + 1 ? 'on' : ''} ${r.bloom ? 'bloom' : ''}`}
+              className={`${month === i + 1 ? 'on' : ''} ${picked === i + 1 ? 'picked' : ''} ${r.bloom ? 'bloom' : ''} ${onPick ? 'pickable' : ''}`}
+              onClick={onPick ? () => onPick(i + 1) : undefined}
               style={{ background: r.color }}
-              title={`${m}: ${r.bucket.name}. ${r.reasons.join('. ')}`}
+              title={`${m}: ${r.label}. ${r.reasons.join('. ')}`}
             >
               {big && <b>{Math.round(r.score * 100)}</b>}
             </i>
