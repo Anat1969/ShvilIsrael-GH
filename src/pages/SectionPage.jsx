@@ -9,7 +9,8 @@ import Photo from '../components/Photo.jsx';
 import ClimateChart from '../components/ClimateChart.jsx';
 import { ALL, MONTHS, loadTrail, fmt, hours, climate } from '../lib/data.js';
 import { SEASON_TEXT } from '../data/sections.js';
-import { suitability, currentMonth } from '../lib/season.js';
+import { suitability, currentMonth, difficulty } from '../lib/season.js';
+import Verdict from '../components/Verdict.jsx';
 import ScaleLegend from '../components/ScaleLegend.jsx';
 import KindTag from '../components/KindTag.jsx';
 import { eventsForSection, monthsText, KINDS } from '../lib/phenomena.js';
@@ -35,6 +36,7 @@ export default function SectionPage() {
   const nav = useNavigate();
   const month = currentMonth();
   const r = suitability(s, month);
+  const [pick, setPick] = useState(month);
 
   useEffect(() => { loadTrail().then(setTrail); }, []);
   useEffect(() => { stopRef.current?.(); setFlying(false); window.scrollTo({ top: 0 }); }, [s.n]);
@@ -98,7 +100,8 @@ export default function SectionPage() {
         <Tile k="עלייה מצטברת" v={`${fmt(up)} מ'`} sub={`ירידה: ${fmt(down)} מ'`} />
         <Tile k="גובה" v={`${fmt(s.min)} עד ${fmt(s.max)} מ'`} sub="מעל פני הים" />
         <Tile k="זמן הליכה" v={`${hours(Math.min(s.tobler, s.naismith))} עד ${hours(Math.max(s.tobler, s.naismith))}`} sub="שעות, בלי הפסקות" hint="טווח בין שני כללים מקובלים: נייסמית (5 קמ״ש ועוד שעה לכל 600 מ׳ עלייה) וטובלר (מהירות לפי שיפוע). פער גדול ביניהם = מקטע עם שיפועים חריגים." />
-        <Tile k={`התאמה ל${MONTHS[month - 1]}`} v={`${r.bucket.name} · ${Math.round(r.score * 100)}`} color={r.color} sub={`עונה מומלצת: ${SEASON_TEXT[s.season]}`} />
+        <Tile k={`התאמה ל${MONTHS[month - 1]}`} v={`${r.bucket.name} · ${Math.round(r.score * 100)}`} color={r.color} sub={r.score < 0.6 ? `בעיקר בגלל: ${r.why}` : `בזכות: ${r.why}`} />
+        <Tile k="קושי" v={difficulty(s).name} color={difficulty(s).color} sub={`${fmt(difficulty(s).kme, 1)} ק"מ־מאמץ`} hint="קילומטר־מאמץ (השיטה השווייצרית): ק״מ ועוד עלייה במטרים חלקי 100. עד 15 קל, עד 22 בינוני, עד 30 מאתגר, מעל 30 קשה." />
         <Tile k="אור יום היום" v={`${clock(sunA.rise)} – ${clock(sunA.set)}`} sub={`${fmt(sunA.daylight, 1)} שעות אור בנקודת ההתחלה`} hint="חישוב לפי אלגוריתם NOAA, דיוק של דקה עד שתיים. לא כולל הסתרה של הרים." />
       </section>
 
@@ -124,8 +127,9 @@ export default function SectionPage() {
         </article>
         <article className="card">
           <h2>לאורך השנה</h2>
-          <h3 className="small-head">התאמה לטיול בכל חודש (ציון מ-0 עד 100)</h3>
-          <SeasonStrip s={s} month={month} big />
+          <h3 className="small-head">התאמה לטיול בכל חודש (ציון מ-0 עד 100). לחיצה על חודש מנמקת את הציון</h3>
+          <SeasonStrip s={s} month={month} big onPick={setPick} picked={pick} />
+          <Verdict s={s} r={suitability(s, pick)} monthName={MONTHS[pick - 1]} />
           <ScaleLegend bloom />
           <h3 className="small-head">אקלים: חום וגשם</h3>
           <ClimateChart s={s} />

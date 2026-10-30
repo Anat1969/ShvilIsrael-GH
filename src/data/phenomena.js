@@ -24,9 +24,9 @@ export const EVENTS = [
   { kind: 'domem', name: 'שלג בחרמון', months: [12, 3], sections: [1, 1], note: 'לפעמים השלג מגיע גם לתחילת השביל. לבדוק את מצב האתר לפני יציאה.' },
   { kind: 'domem', name: 'הגשם הראשון (היורה)', months: [10, 11], sections: [1, 30], note: 'מבשרי הגשם פורחים, והאבק נשטף מהנוף.' },
   { kind: 'domem', name: 'זרימה בנחלי הגליל', months: [1, 4], sections: [5, 13], note: 'דישון, עמוד וציפורי זורמים אחרי חורף גשום.' },
-  { kind: 'domem', name: 'שיטפונות בערוצי המדבר', months: [10, 4], sections: [31, 56], note: 'גשם רחוק יכול להציף ערוץ יבש. לא נכנסים לערוצים כשיש התרעה.' },
-  { kind: 'domem', name: 'שרב באביב', months: [4, 5], sections: [1, 56], note: 'ימים חמים ויבשים במיוחד. ללכת מוקדם ולשאת יותר מים.' },
-  { kind: 'domem', name: 'שרב בסתיו', months: [9, 10], sections: [1, 56], note: 'גלי חום לפני בוא הגשם.' },
+  { kind: 'domem', risk: true, name: 'שיטפונות בערוצי המדבר', months: [10, 4], sections: [31, 56], note: 'גשם רחוק יכול להציף ערוץ יבש. לא נכנסים לערוצים כשיש התרעה.' },
+  { kind: 'domem', risk: true, name: 'שרב באביב', months: [4, 5], sections: [1, 56], note: 'ימים חמים ויבשים במיוחד. ללכת מוקדם ולשאת יותר מים.' },
+  { kind: 'domem', risk: true, name: 'שרב בסתיו', months: [9, 10], sections: [1, 56], note: 'גלי חום לפני בוא הגשם.' },
   // דומם: גאולוגיה, כל השנה
   { kind: 'domem', geo: true, name: 'גיר ובזלת במצוק הארבל', months: 'all', sections: [9, 9], note: 'מצוק של כ-400 מטר מעל הכנרת, בשולי בקע הירדן.' },
   { kind: 'domem', geo: true, name: 'רכס הכרמל', months: 'all', sections: [14, 16], note: 'גוש גיר ודולומיט מוגבה, עם מערות פרהיסטוריות בנחל מערות.' },
