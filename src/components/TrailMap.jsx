@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { ALL } from '../lib/data.js';
-import { suitability, LEVELS } from '../lib/season.js';
+import { suitability } from '../lib/season.js';
 
 // שכבות בלי מפתח API. לכל שכבת בסיס יש גיבוי שנכנס אוטומטית אחרי כמה כשלונות (לקח מהאפליקציה הקודמת: CARTO נשבר בלי מפתח).
 const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services';
@@ -16,7 +16,7 @@ function featureCollection(trail, month, colorBy) {
     type: 'FeatureCollection',
     features: trail.sections.map((t) => {
       const s = ALL[t.n - 1];
-      const color = colorBy === 'season' ? LEVELS[suitability(s, month).level].color : s.color;
+      const color = colorBy === 'season' ? suitability(s, month).color : s.color;
       return { type: 'Feature', properties: { n: t.n, color, name: `${s.n}. ${s.from} – ${s.to}` }, geometry: { type: 'LineString', coordinates: t.geom } };
     }),
   };

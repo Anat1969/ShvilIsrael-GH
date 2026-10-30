@@ -67,7 +67,7 @@ ok(await page.locator('ai-menu .logo').isVisible().catch(() => false), 'A&I logo
 ok(!(await page.locator('header >> text=העתקת קישור').first().isVisible().catch(() => false)), 'no loose development buttons in the bar');
 ok(await page.locator('.atlas canvas.maplibregl-canvas').count() === 1, 'home map renders (WebGL canvas)');
 ok(await page.locator('.atlas .legend').isVisible(), 'home map has a legend');
-ok((await page.locator('.sec-row').count()) === 56, 'a row for every section');
+ok((await page.locator('.sec-list .sec-row').count()) === 56 && (await page.locator('.sub-name').count()) === 11, 'a row for every section, grouped under 11 named subregions');
 const janColors = await page.locator('.tmap').getAttribute('data-colors');
 const janText = await page.locator('.tally-text').textContent();
 await page.locator('.months button', { hasText: 'יולי' }).click();
@@ -105,6 +105,8 @@ await page.goto(`${ROOT}/s/6`);
 await mapReady(page, '.s-map .tmap');
 await page.waitForSelector('.s-map .profile svg > path', { state: 'attached' });
 ok(await page.locator('.fc li').count() === 4, 'forecast shows 4 days');
+ok((await page.locator('.kind-col').count()) >= 3, 'section shows living, plants and land phenomena');
+ok((await page.locator('.strip-big .strip-months span').count()) === 12, 'year strip names every month');
 ok(await page.locator('.fc li.hot').count() === 1, 'hot day (33) flagged in red');
 ok(await page.locator('.obs .ob').count() === 3, 'recent nature observations shown');
 await page.locator('.card-head .seg button', { hasText: 'ציפורים' }).click();
@@ -138,6 +140,10 @@ await page.screenshot({ path: `${SHOTS}/section-desktop.png` });
 // עונות
 await page.goto(`${ROOT}/seasons`);
 ok((await page.locator('.mx-cell').count()) === 56 * 12, 'season matrix: 56 x 12 cells');
+ok((await page.locator('.mx-group').count()) === 5 && (await page.locator('.mx-sub').count()) === 11, 'matrix rows are grouped and named (5 regions, 11 subregions)');
+ok((await page.locator('.yc-group').count()) >= 5, 'year calendar: living, plants, land, sky and geology groups');
+ok((await page.locator('.moon').count()) >= 24, 'year calendar shows new and full moons');
+ok((await page.locator('.scale-legend').count()) >= 2, 'graded scale legend shown');
 await page.locator('.mx-cell').nth(5 * 12 + 2).hover();
 ok(/מקטע 6 · מרץ/.test(await page.locator('.mx-detail').textContent()), 'hovering a cell explains it');
 ok((await page.locator('.sp').count()) === nature.species.length, `all ${nature.species.length} species in the phenology section`);
@@ -148,7 +154,7 @@ ok(await page.locator('#Anemone-coronaria').evaluate((el) => { const r = el.getB
 await page.screenshot({ path: `${SHOTS}/seasons-desktop.png` });
 
 // תכנון
-await page.goto(`${ROOT}/plan?dir=ns&start=2026-02-01&km=20&rest=6&from=1&to=56`);
+await page.goto(`${ROOT}/plan?mode=km&dir=ns&start=2026-02-01&km=20&rest=6&from=1&to=56`);
 await page.waitForSelector('.sort-table tbody tr');
 const days20 = await page.locator('.big-num b').first().textContent();
 ok(Number(days20) >= 60 && Number(days20) <= 70, `full trail at 20 km/day with rest days: ${days20} days`);
@@ -171,6 +177,14 @@ await page.screenshot({ path: `${SHOTS}/plan-desktop.png` });
 await page.goto(`${ROOT}/plan`);
 await page.waitForTimeout(300);
 ok(new URL(page.url()).searchParams.get('from') === '37', 'plan restored from local storage');
+
+// מקטע ליום (ברירת מחדל) ולוח המסע
+await page.goto(`${ROOT}/plan?dir=ns&start=2026-02-01&rest=0&from=1&to=56`);
+await page.waitForSelector('.cal-day.walk');
+ok(Number(await page.locator('.big-num b').first().textContent()) === 56, 'section-per-day by default: 56 days for 56 sections');
+ok((await page.locator('.cal-day.walk').count()) === 56, 'calendar shows every walking day');
+ok((await page.locator('.cal-month').count()) >= 2, 'calendar spans the months of the trip');
+ok(/מק' 1/.test(await page.locator('.cal-day.walk').first().textContent()), 'first calendar day is section 1');
 
 // ניווט
 await page.goto(ROOT);

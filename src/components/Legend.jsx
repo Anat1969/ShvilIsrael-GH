@@ -1,5 +1,5 @@
 import { REGIONS } from '../lib/data.js';
-import { LEVELS } from '../lib/season.js';
+import ScaleLegend from './ScaleLegend.jsx';
 import { BASES } from './TrailMap.jsx';
 
 /** מקרא המפה, כולל בחירת בסיס ותלת־ממד. */
@@ -8,14 +8,7 @@ export default function Legend({ colorBy, base, setBase, terrain, setTerrain, mo
     <details className="legend" open={typeof window === 'undefined' || window.innerWidth > 900}>
       <summary className="mono">מקרא</summary>
       {colorBy === 'season' ? (
-        <>
-          <p className="legend-head">התאמה לטיול ב{monthName}</p>
-          <ul className="legend-list">
-            {Object.entries(LEVELS).map(([k, l]) => (
-              <li key={k}><i className="sw-line" style={{ background: l.color }} />{l.name}</li>
-            ))}
-          </ul>
-        </>
+        <ScaleLegend title={`התאמה לטיול ב${monthName}`} />
       ) : (
         <ul className="legend-list">
           {REGIONS.map((r) => (

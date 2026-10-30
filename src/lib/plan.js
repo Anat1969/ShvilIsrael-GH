@@ -1,12 +1,11 @@
 import { ALL, sectionAtKm, TOTAL_KM } from './data.js';
-import { suitability } from './season.js';
+import { suitability, SCALE } from './season.js';
 import { sunTimes } from './sun.js';
 
-// מתכנן מסע. זמן ההליכה מחושב לפי קצב טובלר של כל מקטע (מתוך פרופיל הגובה),
-// כך שיום בהרים "שוקל" יותר מיום במישור באותו מספר קילומטרים.
-const SCORE = { go: 1, maybe: 0.5, no: 0 };
+// מתכנן מסע. שני מצבים: מקטע ליום (ברירת מחדל, כמו בחלוקה הרשמית) או מספר קבוע של ק"מ ביום.
+// זמן ההליכה לפי קצב טובלר של כל מקטע (מתוך פרופיל הגובה), כך שיום בהרים "שוקל" יותר מיום במישור.
 
-export const DEFAULT_PLAN = { dir: 'ns', start: null, kmDay: 20, rest: 6, from: 1, to: 56 };
+export const DEFAULT_PLAN = { mode: 'section', dir: 'ns', start: null, kmDay: 20, rest: 6, from: 1, to: 56 };
 
 function legs(a, b) {
   // הקטעים בין שני קילומטרים לאורך השביל, עם החלק היחסי מכל מקטע
@@ -15,7 +14,7 @@ function legs(a, b) {
   return ALL.filter((s) => s.startKm < hi && s.startKm + s.length > lo).map((s) => {
     const part = Math.min(hi, s.startKm + s.length) - Math.max(lo, s.startKm);
     return { s, km: part, f: part / s.length };
-  });
+  }).filter((l) => l.km > 0.15);
 }
 
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
@@ -31,12 +30,15 @@ export function buildPlan(p) {
   let pos = 0;
   let date = p.start ? new Date(p.start) : new Date();
   let walked = 0;
+  // במצב מקטע ליום: גבולות הימים הם גבולות המקטעים
+  const order = ALL.slice(from.n - 1, to.n);
+  const cuts = p.mode === 'section' ? (forward ? order : [...order].reverse()).map((s) => s.length) : null;
   while (pos < total - 0.05 && days.length < 400) {
     if (p.rest && walked > 0 && walked % p.rest === 0 && days[days.length - 1]?.type === 'walk') {
       days.push({ type: 'rest', date, at: days[days.length - 1].endKm });
       date = addDays(date, 1);
     }
-    const step = Math.min(p.kmDay, total - pos);
+    const step = cuts ? cuts[walked] ?? total - pos : Math.min(p.kmDay, total - pos);
     const a = forward ? lo + pos : hi - pos;
     const b = forward ? lo + pos + step : hi - pos - step;
     const ls = legs(a, b);
@@ -53,8 +55,8 @@ export function buildPlan(p) {
     date = addDays(date, 1);
   }
   const walk = days.filter((d) => d.type === 'walk');
-  const score = walk.reduce((n, d) => n + SCORE[d.suit.level], 0) / Math.max(1, walk.length);
-  const counts = { go: 0, maybe: 0, no: 0 };
+  const score = walk.reduce((n, d) => n + d.suit.score, 0) / Math.max(1, walk.length);
+  const counts = Object.fromEntries(SCALE.map((b) => [b.id, 0]));
   walk.forEach((d) => { counts[d.suit.level] += 1; });
   return { days, walk, score, counts, total, end: days[days.length - 1]?.date };
 }
@@ -73,6 +75,7 @@ export function scanStarts(p, year = new Date().getFullYear()) {
 
 export function planToQuery(p) {
   const q = new URLSearchParams();
+  q.set('mode', p.mode);
   q.set('dir', p.dir);
   if (p.start) q.set('start', toISO(p.start));
   q.set('km', p.kmDay);
@@ -90,6 +93,7 @@ export function planFromQuery(search) {
   };
   const start = q.get('start') ? new Date(q.get('start')) : null;
   return {
+    mode: q.get('mode') === 'km' ? 'km' : 'section',
     dir: q.get('dir') === 'sn' ? 'sn' : 'ns',
     start: start && !isNaN(start) ? start : null,
     kmDay: num('km', DEFAULT_PLAN.kmDay, 8, 40),

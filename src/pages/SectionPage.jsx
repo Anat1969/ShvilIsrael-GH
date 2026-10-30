@@ -9,7 +9,11 @@ import Photo from '../components/Photo.jsx';
 import ClimateChart from '../components/ClimateChart.jsx';
 import { ALL, MONTHS, loadTrail, fmt, hours, climate } from '../lib/data.js';
 import { SEASON_TEXT } from '../data/sections.js';
-import { suitability, LEVELS, currentMonth } from '../lib/season.js';
+import { suitability, currentMonth } from '../lib/season.js';
+import ScaleLegend from '../components/ScaleLegend.jsx';
+import KindTag from '../components/KindTag.jsx';
+import { eventsForSection, monthsText, KINDS } from '../lib/phenomena.js';
+import { MONTHS_SHORT } from '../lib/data.js';
 import { sunTimes, clock } from '../lib/sun.js';
 import { forecast, recentNature } from '../lib/live.js';
 import { useWalked } from '../lib/walked.js';
@@ -94,16 +98,18 @@ export default function SectionPage() {
         <Tile k="עלייה מצטברת" v={`${fmt(up)} מ'`} sub={`ירידה: ${fmt(down)} מ'`} />
         <Tile k="גובה" v={`${fmt(s.min)} עד ${fmt(s.max)} מ'`} sub="מעל פני הים" />
         <Tile k="זמן הליכה" v={`${hours(Math.min(s.tobler, s.naismith))} עד ${hours(Math.max(s.tobler, s.naismith))}`} sub="שעות, בלי הפסקות" hint="טווח בין שני כללים מקובלים: נייסמית (5 קמ״ש ועוד שעה לכל 600 מ׳ עלייה) וטובלר (מהירות לפי שיפוע). פער גדול ביניהם = מקטע עם שיפועים חריגים." />
-        <Tile k={`היום, ${MONTHS[month - 1]}`} v={LEVELS[r.level].name} level={r.level} sub={`עונה מומלצת: ${SEASON_TEXT[s.season]}`} />
+        <Tile k={`התאמה ל${MONTHS[month - 1]}`} v={`${r.bucket.name} · ${Math.round(r.score * 100)}`} color={r.color} sub={`עונה מומלצת: ${SEASON_TEXT[s.season]}`} />
         <Tile k="אור יום היום" v={`${clock(sunA.rise)} – ${clock(sunA.set)}`} sub={`${fmt(sunA.daylight, 1)} שעות אור בנקודת ההתחלה`} hint="חישוב לפי אלגוריתם NOAA, דיוק של דקה עד שתיים. לא כולל הסתרה של הרים." />
       </section>
 
       <section className="s-map">
+        <h2 className="frame-h">מפה ותבליט <small className="mono">התוואי המסומן, נקודות התחלה וסיום</small></h2>
         <div className="atlas-map tall">
           <TrailMap ref={mapRef} trail={trail} focus={s.n} marker={markerPt} base={base} terrain={terrain || flying} onSelect={(x) => x !== s.n && nav(`/s/${x}`)} onFly={onFly} reverse={reverse} />
           <Legend colorBy="region" base={base} setBase={setBase} terrain={terrain} setTerrain={setTerrain} />
           <button className={`fly ${flying ? 'on' : ''}`} onClick={fly} disabled={!trail}>{flying ? 'עצירת הטיסה' : 'טיסה לאורך המקטע'}</button>
         </div>
+        <h2 className="frame-h">פרופיל גובה <small className="mono">{from} מימין, {to} משמאל</small></h2>
         {profile && (
           <Profile data={profile} marker={km} onHover={(k) => !flying && setHoverKm(k)} height={170} labels={[{ text: from, at: 0 }, { text: to, at: s.length * 0.97 }]} />
         )}
@@ -118,11 +124,15 @@ export default function SectionPage() {
         </article>
         <article className="card">
           <h2>לאורך השנה</h2>
+          <h3 className="small-head">התאמה לטיול בכל חודש (ציון מ-0 עד 100)</h3>
           <SeasonStrip s={s} month={month} big />
+          <ScaleLegend bloom />
+          <h3 className="small-head">אקלים: חום וגשם</h3>
           <ClimateChart s={s} />
           <p className="muted small">{climate.source ? `מקור האקלים: ${climate.source}.` : 'נתוני האקלים עדיין לא נטענו, ולכן הרמזור מבוסס כרגע רק על העונה הרשמית.'} כלל הרמזור מוסבר ב<Link to="/seasons#method">עמוד העונות</Link>.</p>
         </article>
         <Forecast s={s} />
+        <Phenomena s={s} month={month} />
         <NatureNow s={s} />
       </section>
 
@@ -134,9 +144,9 @@ export default function SectionPage() {
   );
 }
 
-function Tile({ k, v, sub, level, hint }) {
+function Tile({ k, v, sub, color, hint }) {
   return (
-    <motion.div className={`tile ${level ? `tile-${level}` : ''}`} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} title={hint}>
+    <motion.div className="tile" style={color ? { borderTopColor: color, '--v': color } : undefined} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} title={hint}>
       <span className="mono">{k}</span>
       <b>{v}</b>
       {sub && <small>{sub}</small>}
@@ -212,5 +222,47 @@ function NatureNow({ s }) {
         </>
       )}
     </article>
+  );
+}
+
+function Phenomena({ s, month }) {
+  const evs = eventsForSection(s.n);
+  return (
+    <article className="card card-wide">
+      <h2>חי, צומח ודומם במקטע</h2>
+      <p className="muted small">מה קורה כאן לאורך השנה. החודש הנוכחי מודגש. צומח: לפי תצפיות iNaturalist ברצועת הרוחב של המקטע.</p>
+      <div className="kinds">
+        {['chai', 'tzomeach', 'domem', 'shamayim'].map((k) => {
+          const list = evs.filter((e) => e.kind === k);
+          if (!list.length) return null;
+          return (
+            <section key={k} className="kind-col" style={{ '--k': KINDS[k].color }}>
+              <h3><KindTag kind={k} /> <small>{KINDS[k].sub}</small></h3>
+              <ul>
+                {list.map((e) => {
+                  const now = e.monthList.includes(month) && e.monthList.length < 12;
+                  return (
+                    <li key={e.name} className={`${now ? 'now' : ''} ${k === 'tzomeach' ? 'compact' : ''}`}>
+                      <b>{k === 'tzomeach' ? e.name.replace(/ ב(צפון|מרכז|דרום)$/, '') : e.name}</b>
+                      <span className="mono">{monthsText(e, MONTHS_SHORT)}{now ? ' · עכשיו' : ''}</span>
+                      {e.note && k !== 'tzomeach' && <small>{e.note}</small>}
+                      <MonthDots list={e.monthList} month={month} />
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+    </article>
+  );
+}
+
+function MonthDots({ list, month }) {
+  return (
+    <span className="mdots" aria-hidden="true">
+      {MONTHS_SHORT.map((m, i) => <i key={m} className={`${list.includes(i + 1) ? 'in' : ''} ${month === i + 1 ? 'cur' : ''}`} title={m} />)}
+    </span>
   );
 }
