@@ -5,6 +5,8 @@ import Home from './pages/Home.jsx';
 import SectionPage from './pages/SectionPage.jsx';
 import SeasonsPage from './pages/SeasonsPage.jsx';
 import PlanPage from './pages/PlanPage.jsx';
+import GuidePage from './pages/GuidePage.jsx';
+import GuideIndex from './pages/GuideIndex.jsx';
 
 export default function App() {
   const loc = useLocation();
@@ -16,6 +18,8 @@ export default function App() {
           <Routes location={loc}>
             <Route path="/" element={<Home />} />
             <Route path="/s/:n" element={<SectionPage />} />
+            <Route path="/s/:n/guide" element={<GuidePage />} />
+            <Route path="/guide" element={<GuideIndex />} />
             <Route path="/seasons" element={<SeasonsPage />} />
             <Route path="/plan" element={<PlanPage />} />
             <Route path="*" element={<Home />} />

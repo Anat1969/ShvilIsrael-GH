@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import ScaleLegend from '../components/ScaleLegend.jsx';
 import KindTag from '../components/KindTag.jsx';
 import Verdict from '../components/Verdict.jsx';
+import Thumb from '../components/Thumb.jsx';
 import { ALL, REGIONS, SUBREGIONS, MONTHS, MONTHS_SHORT, nature, climate, fmt } from '../lib/data.js';
 import { suitability, scoreColor, currentMonth, BLOOM_COLOR } from '../lib/season.js';
 import { ALL_EVENTS, KINDS, monthsText } from '../lib/phenomena.js';
@@ -281,7 +282,7 @@ function YearCalendar({ now }) {
           <div className="yc-ghead"><KindTag kind="domem" /> <small>גאולוגיה לאורך השביל, כל השנה</small></div>
           <ul className="geo-list">
             {ALL_EVENTS.filter((e) => e.geo).map((e) => (
-              <li key={e.name}><Link to={`/s/${e.sections[0]}`}><b>{e.name}</b><small className="mono">מקטעים {e.sections[0]}{e.sections[1] !== e.sections[0] ? `–${e.sections[1]}` : ''}</small></Link><span>{e.note}</span></li>
+              <li key={e.name}><Thumb title={e.wiki} color={KINDS.domem.color} size={72} /><Link to={`/s/${e.sections[0]}`}><b>{e.name}</b><small className="mono">מקטעים {e.sections[0]}{e.sections[1] !== e.sections[0] ? `–${e.sections[1]}` : ''}</small></Link><span>{e.note}</span></li>
             ))}
           </ul>
         </div>

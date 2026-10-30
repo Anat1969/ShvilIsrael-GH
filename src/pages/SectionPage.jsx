@@ -18,6 +18,8 @@ import { MONTHS_SHORT } from '../lib/data.js';
 import { sunTimes, clock } from '../lib/sun.js';
 import { forecast, recentNature } from '../lib/live.js';
 import { useWalked } from '../lib/walked.js';
+import Thumb from '../components/Thumb.jsx';
+import { stationCount } from '../lib/guide.js';
 
 export default function SectionPage() {
   const { n } = useParams();
@@ -87,6 +89,7 @@ export default function SectionPage() {
               <button className={!reverse ? 'on' : ''} aria-pressed={!reverse} onClick={() => setParams({}, { replace: true })}>מצפון לדרום</button>
               <button className={reverse ? 'on' : ''} aria-pressed={reverse} onClick={() => setParams({ dir: 'sn' }, { replace: true })}>מדרום לצפון</button>
             </div>
+            <Link className="btn guide-btn" to={`/s/${s.n}/guide${reverse ? '?dir=sn' : ''}`}>מדריך בכיס: {stationCount(s.n)} תחנות עם סיפור</Link>
             <button className={`check ${walked.has(s.n) ? 'on' : ''}`} aria-pressed={walked.has(s.n)} onClick={() => toggle(s.n)} title="נשמר בדפדפן הזה בלבד">
               {walked.has(s.n) ? 'הלכתי כאן' : 'סימון: הלכתי כאן'}
             </button>
@@ -246,7 +249,8 @@ function Phenomena({ s, month }) {
                 {list.map((e) => {
                   const now = e.monthList.includes(month) && e.monthList.length < 12;
                   return (
-                    <li key={e.name} className={`${now ? 'now' : ''} ${k === 'tzomeach' ? 'compact' : ''}`}>
+                    <li key={e.name} className={`${now ? 'now' : ''} ${k === 'tzomeach' ? 'compact' : 'with-thumb'}`}>
+                      {k !== 'tzomeach' && <Thumb title={e.wiki} color={KINDS[k].color} size={56} />}
                       <b>{k === 'tzomeach' ? e.name.replace(/ ב(צפון|מרכז|דרום)$/, '') : e.name}</b>
                       <span className="mono">{monthsText(e, MONTHS_SHORT)}{now ? ' · עכשיו' : ''}</span>
                       {e.note && k !== 'tzomeach' && <small>{e.note}</small>}
