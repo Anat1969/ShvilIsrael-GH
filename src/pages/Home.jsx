@@ -6,9 +6,13 @@ import Legend from '../components/Legend.jsx';
 import Profile from '../components/Profile.jsx';
 import MonthPicker from '../components/MonthPicker.jsx';
 import SeasonStrip from '../components/SeasonStrip.jsx';
+import ScaleLegend from '../components/ScaleLegend.jsx';
+import KindTag from '../components/KindTag.jsx';
 import Photo from '../components/Photo.jsx';
-import { ALL, REGIONS, OVERVIEW, TOTAL_KM, MONTHS, nature, loadTrail, sectionAtKm, fmt } from '../lib/data.js';
-import { suitability, LEVELS, currentMonth } from '../lib/season.js';
+import { ALL, REGIONS, SUBREGIONS, OVERVIEW, TOTAL_KM, MONTHS, MONTHS_SHORT, loadTrail, sectionAtKm, fmt } from '../lib/data.js';
+import { suitability, SCALE, currentMonth } from '../lib/season.js';
+import { eventsInMonth, monthsText, KINDS } from '../lib/phenomena.js';
+import { moonEvents } from '../lib/moon.js';
 import { useWalked } from '../lib/walked.js';
 
 const REGION_TEXT = {
@@ -40,23 +44,15 @@ export default function Home() {
   };
 
   const levels = useMemo(() => ALL.map((s) => suitability(s, month)), [month]);
-  const counts = { go: 0, maybe: 0, no: 0 };
+  const counts = Object.fromEntries(SCALE.map((b) => [b.id, 0]));
   levels.forEach((l) => { counts[l.level] += 1; });
-  const kmGreen = ALL.reduce((n, s, i) => n + (levels[i].level === 'go' ? s.length : 0), 0);
-  const picks = ALL.map((s, i) => ({ s, r: levels[i] }))
-    .filter((x) => x.r.level === 'go')
-    .sort((a, b) => (b.r.bloom - a.r.bloom) || Math.abs((a.r.t ?? 22) - 21) - Math.abs((b.r.t ?? 22) - 21))
-    .slice(0, 4);
-  const blooming = nature.species
-    .map((sp) => {
-      const v = sp.months.all;
-      const max = Math.max(...v);
-      return { sp, share: max ? v[month - 1] / max : 0 };
-    })
-    .filter((x) => x.share >= 0.5)
-    .sort((a, b) => b.share - a.share);
+  const kmGood = ALL.reduce((n, s, i) => n + (levels[i].score >= 0.6 ? s.length : 0), 0);
+  const picks = ALL.map((s, i) => ({ s, r: levels[i] })).sort((a, b) => b.r.score - a.r.score).slice(0, 4);
+  const events = eventsInMonth(month);
+  const year = new Date().getFullYear();
+  const moon = moonEvents(year, month);
 
-  const bands = ALL.map((s, i) => ({ n: s.n, from: s.startKm, to: s.startKm + s.length, color: colorBy === 'season' ? LEVELS[levels[i].level].color : s.color, dim: focus && focus !== s.n }));
+  const bands = ALL.map((s, i) => ({ n: s.n, from: s.startKm, to: s.startKm + s.length, color: colorBy === 'season' ? levels[i].color : s.color, dim: focus && focus !== s.n }));
   const markerPt = useMemo(() => {
     if (hoverKm == null || !trail) return null;
     const s = sectionAtKm(hoverKm);
@@ -69,6 +65,7 @@ export default function Home() {
   const maxE = Math.max(...ALL.map((s) => s.max));
   const minE = Math.min(...ALL.map((s) => s.min));
   const totalUp = ALL.reduce((n, s) => n + s.up, 0);
+  const goTo = (n) => set('s', n);
 
   return (
     <main className="home">
@@ -83,22 +80,27 @@ export default function Home() {
         </div>
         <div className="hero-controls">
           <div className="keys">
-            <div><b>56</b><span>מקטעים</span></div>
-            <div><b>5</b><span>אזורים</span></div>
-            <div><b>{fmt(maxE)}</b><span>מטר, הגבוה</span></div>
-            <div><b>{fmt(minE)}</b><span>מטר, הנמוך</span></div>
+            <div><span>מקטעים</span><b>56</b></div>
+            <div><span>אזורים</span><b>5</b></div>
+            <div><span>הנקודה הגבוהה</span><b>{fmt(maxE)}</b><small>מטר</small></div>
+            <div><span>הנקודה הנמוכה</span><b>{fmt(minE)}</b><small>מטר</small></div>
           </div>
+          <span className="ctl-label">בחירת חודש</span>
           <MonthPicker month={month} setMonth={(m) => set('m', m)} />
-          <div className="seg" role="group" aria-label="צביעת השביל">
-            <button className={colorBy === 'season' ? 'on' : ''} aria-pressed={colorBy === 'season'} onClick={() => set('c', null)}>רמזור עונתי</button>
-            <button className={colorBy === 'region' ? 'on' : ''} aria-pressed={colorBy === 'region'} onClick={() => set('c', 'region')}>אזורים</button>
+          <div className="row">
+            <span className="ctl-label">צביעת השביל</span>
+            <div className="seg" role="group" aria-label="צביעת השביל">
+              <button className={colorBy === 'season' ? 'on' : ''} aria-pressed={colorBy === 'season'} onClick={() => set('c', null)}>התאמה לחודש</button>
+              <button className={colorBy === 'region' ? 'on' : ''} aria-pressed={colorBy === 'region'} onClick={() => set('c', 'region')}>אזורים</button>
+            </div>
           </div>
         </div>
       </section>
 
       <section className="atlas">
         <div className="atlas-map">
-          <TrailMap ref={mapRef} trail={trail} month={month} colorBy={colorBy} focus={focus} marker={markerPt} base={base} terrain={terrain} onSelect={(n) => set('s', n)} />
+          <span className="frame-title">מפת השביל · {colorBy === 'season' ? `התאמה ל${MONTHS[month - 1]}` : 'חמשת האזורים'}</span>
+          <TrailMap ref={mapRef} trail={trail} month={month} colorBy={colorBy} focus={focus} marker={markerPt} base={base} terrain={terrain} onSelect={goTo} />
           <Legend colorBy={colorBy} base={base} setBase={setBase} terrain={terrain} setTerrain={setTerrain} monthName={MONTHS[month - 1]} />
           {!trail && <div className="map-loading mono">טוען את התוואי</div>}
         </div>
@@ -106,7 +108,8 @@ export default function Home() {
         <aside className="now">
           <AnimatePresence mode="wait">
             {f ? (
-              <motion.div key={`f${f.n}`} className="focus" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }}>
+              <motion.div key={`f${f.n}`} className="focus" style={{ '--c': f.color }} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }}>
+                <p className="frame-label">מקטע נבחר</p>
                 <p className="mono eyebrow" style={{ color: f.color }}>מקטע {f.n} · {f.region.name}</p>
                 <h2>{f.from} – {f.to}</h2>
                 <p>{f.lead}</p>
@@ -115,8 +118,9 @@ export default function Home() {
                   <span><b>{fmt(f.up)}</b> מ' עלייה</span>
                   <span><b>{fmt(f.down)}</b> מ' ירידה</span>
                 </div>
-                <SeasonStrip s={f} month={month} />
-                <p className={`chip chip-${fr.level}`}>{MONTHS[month - 1]}: {LEVELS[fr.level].name}</p>
+                <h3 className="small-head">התאמה לאורך השנה</h3>
+                <SeasonStrip s={f} month={month} labels />
+                <p className="chip" style={{ background: fr.color }}>{MONTHS[month - 1]}: {fr.bucket.name} · {Math.round(fr.score * 100)}</p>
                 <ul className="reasons">{fr.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
                 <div className="row">
                   <Link className="btn" to={`/s/${f.n}`}>לעמוד המקטע</Link>
@@ -125,45 +129,49 @@ export default function Home() {
               </motion.div>
             ) : (
               <motion.div key="now" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }}>
-                <p className="mono eyebrow">עכשיו בשביל · {MONTHS[month - 1]}</p>
-                <div className="tally" role="img" aria-label="חלוקת המקטעים ברמזור">
-                  {Object.entries(counts).map(([k, v]) => (
-                    <motion.i key={k} layout style={{ flexGrow: v, background: LEVELS[k].color }} title={`${LEVELS[k].name}: ${v}`} />
-                  ))}
+                <p className="frame-label">עכשיו בשביל · {MONTHS[month - 1]}</p>
+                <div className="tally" role="img" aria-label="חלוקת המקטעים לפי דרגות">
+                  {SCALE.map((b) => <motion.i key={b.id} layout style={{ flexGrow: counts[b.id], background: b.color }} title={`${b.name}: ${counts[b.id]}`} />)}
                 </div>
-                <p className="tally-text">
-                  <b style={{ color: LEVELS.go.color }}>{counts.go} מקטעים מומלצים</b>, {counts.maybe} בתנאים, {counts.no} לא מומלצים.
-                  {' '}<mark>{fmt(kmGreen)} ק"מ ירוקים</mark> ב{MONTHS[month - 1]}.
-                </p>
-                {picks.length > 0 && (
-                  <>
-                    <h3 className="mono small-head">ההמלצות לחודש</h3>
-                    <ul className="picks">
-                      {picks.map(({ s, r }) => (
-                        <li key={s.n}>
-                          <button onClick={() => set('s', s.n)}>
-                            <span className="pick-n mono" style={{ background: s.color }}>{s.n}</span>
-                            <span><b>{s.from} – {s.to}</b><small>{r.bloom ? 'שיא הפריחה · ' : ''}{r.t != null ? `כ-${Math.round(r.t)} מעלות ביום` : s.region.name}</small></span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-                {blooming.length > 0 && (
-                  <>
-                    <h3 className="mono small-head">בשיא החודש, לפי תצפיות</h3>
-                    <div className="bloom-row">
-                      {blooming.slice(0, 6).map(({ sp }) => (
-                        <Link key={sp.sci} to={`/seasons#${sp.sci.replace(/ /g, '-')}`} className="bloom-chip" title={sp.note}>
-                          {sp.photo && <img src={sp.photo.src} alt="" loading="lazy" />}
-                          <span>{sp.he}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  </>
-                )}
-                <p className="method"><Link to="/seasons#method">איך מחושב הרמזור</Link></p>
+                <ul className="tally-keys">
+                  {SCALE.map((b) => <li key={b.id}><i style={{ background: b.color }} /><b>{counts[b.id]}</b> {b.name}</li>)}
+                </ul>
+                <p className="tally-text"><mark>{fmt(kmGood)} ק"מ בדרגת "טוב" ומעלה</mark> ב{MONTHS[month - 1]}.</p>
+
+                <h3 className="small-head">הכי מתאים החודש</h3>
+                <ul className="picks">
+                  {picks.map(({ s, r }) => (
+                    <li key={s.n}>
+                      <button onClick={() => goTo(s.n)}>
+                        <span className="pick-n mono" style={{ background: r.color }}>{s.n}</span>
+                        <span><b>{s.from} – {s.to}</b><small>{r.bucket.name}{r.bloom ? ' · שיא הפריחה' : ''}{r.t != null ? ` · כ-${Math.round(r.t)} מעלות ביום` : ''}</small></span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+
+                <h3 className="small-head">החודש בשביל: חי, צומח, דומם ושמיים</h3>
+                <ul className="events">
+                  {['chai', 'tzomeach', 'domem', 'shamayim'].map((k) => {
+                    const list = events.filter((e) => e.kind === k).slice(0, k === 'tzomeach' ? 4 : 3);
+                    const extra = k === 'shamayim' ? moon.map((mo) => ({ name: mo.type === 'new' ? 'מולד הירח: לילה חשוך' : 'ירח מלא: לילה מואר', when: mo.date.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' }) })) : [];
+                    if (!list.length && !extra.length) return null;
+                    return (
+                      <li key={k} className="ev-group" style={{ '--k': KINDS[k].color }}>
+                        <KindTag kind={k} />
+                        <ul>
+                          {list.map((e) => (
+                            <li key={e.name}>
+                              <button onClick={() => goTo(e.sections[0])} title={e.note}><b>{e.name}</b><small>{monthsText(e, MONTHS_SHORT)} · מקטעים {e.sections[0]}{e.sections[1] !== e.sections[0] ? `–${e.sections[1]}` : ''}</small></button>
+                            </li>
+                          ))}
+                          {extra.map((e) => <li key={e.name + e.when}><span><b>{e.name}</b><small>{e.when}</small></span></li>)}
+                        </ul>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="method"><Link to="/seasons#method">איך מחושבת ההתאמה</Link> · <Link to="/seasons#calendar">לוח השנה המלא</Link></p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -186,9 +194,14 @@ export default function Home() {
           onPick={(k) => set('s', sectionAtKm(k).n)}
           labels={REGIONS.map((r) => ({ text: r.name, at: ALL[r.from - 1].startKm }))}
         />
+        {colorBy === 'season' && <ScaleLegend title={`צבע הפס: התאמה ל${MONTHS[month - 1]}`} />}
       </section>
 
       <section className="regions">
+        <header className="regions-head">
+          <h2>56 המקטעים, לפי אזורים</h2>
+          <ScaleLegend title="פס החודשים בכל שורה: התאמה לטיול" bloom />
+        </header>
         {REGIONS.map((r) => {
           const list = ALL.filter((s) => s.region.id === r.id);
           const km = list.reduce((n, s) => n + s.length, 0);
@@ -198,30 +211,42 @@ export default function Home() {
               <header className="region-head">
                 <Photo wiki={ALL[r.from - 1].wiki} name={r.name} color={r.color} />
                 <div>
-                  <p className="mono eyebrow">מקטעים {r.from} עד {r.to} · {fmt(km)} ק"מ{done ? ` · הלכתי ${done}` : ''}</p>
+                  <p className="mono eyebrow">אזור · מקטעים {r.from} עד {r.to} · {fmt(km)} ק"מ{done ? ` · הלכתי ${done}` : ''}</p>
                   <h2>{r.name}</h2>
                   <p>{REGION_TEXT[r.id]}</p>
                 </div>
               </header>
-              <ol className="sec-list">
-                {list.map((s) => (
-                  <li key={s.n}>
-                    <button className={`sec-row ${walked.has(s.n) ? 'walked' : ''}`} onClick={() => nav(`/s/${s.n}`)}>
-                      <span className="sec-n mono">{s.n}</span>
-                      <span className="sec-name"><b>{s.from} – {s.to}</b><small>{s.sites.slice(0, 3).join(' · ')}</small></span>
-                      <Spark s={s} />
-                      <span className="sec-km mono">{fmt(s.length, 1)} ק"מ<small>{fmt(s.up)}+ מ'</small></span>
-                      <SeasonStrip s={s} month={month} />
-                    </button>
-                  </li>
-                ))}
-              </ol>
+              {SUBREGIONS.filter((sr) => sr.region === r.id).map((sr) => (
+                <div key={sr.id} className="sub">
+                  <h3 className="sub-name">{sr.name} <span className="mono">מקטעים {sr.from}–{sr.to}</span></h3>
+                  <div className="sec-row sec-head mono" aria-hidden="true">
+                    <span>מס'</span>
+                    <span>מקטע ואתרים</span>
+                    <span>פרופיל</span>
+                    <span>אורך</span>
+                    <span className="sec-head-months">{MONTHS_SHORT.map((m, i) => <i key={m} className={month === i + 1 ? 'on' : ''}>{m}</i>)}</span>
+                  </div>
+                  <ol className="sec-list">
+                    {list.filter((s) => s.sub.id === sr.id).map((s) => (
+                      <li key={s.n}>
+                        <button className={`sec-row ${walked.has(s.n) ? 'walked' : ''}`} onClick={() => nav(`/s/${s.n}`)}>
+                          <span className="sec-n mono">{s.n}</span>
+                          <span className="sec-name"><b>{s.from} – {s.to}</b><small>{s.sites.slice(0, 3).join(' · ')}</small></span>
+                          <Spark s={s} />
+                          <span className="sec-km mono"><span><b>{fmt(s.length, 1)}</b> ק"מ</span><small>{fmt(s.up)}+ מ'</small></span>
+                          <SeasonStrip s={s} month={month} />
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
             </motion.article>
           );
         })}
       </section>
       <footer className="foot">
-        <p>מקורות: תוואי השביל מ-OpenStreetMap, חלוקת המקטעים והעונות מהמדריכים של <a href="https://www.teva.org.il/israel-national-trail" target="_blank" rel="noreferrer">החברה להגנת הטבע</a>, גבהים מ-AWS Terrain Tiles, תצפיות טבע מ-iNaturalist, תמונות מוויקיפדיה. אפליקציה עצמאית, לא של החברה להגנת הטבע.</p>
+        <p>מקורות: תוואי השביל מ-OpenStreetMap, חלוקת המקטעים והעונות מהמדריכים של <a href="https://www.teva.org.il/israel-national-trail" target="_blank" rel="noreferrer">החברה להגנת הטבע</a>, גבהים מ-AWS Terrain Tiles, אקלים מ-ERA5, תצפיות טבע מ-iNaturalist, תמונות מוויקיפדיה. אפליקציה עצמאית, לא של החברה להגנת הטבע.</p>
       </footer>
     </main>
   );
