@@ -58,14 +58,16 @@ export function pointAt(coords, km) {
   return coords[coords.length - 1];
 }
 
-const TrailMap = forwardRef(function TrailMap({ trail, focus, month, colorBy = 'region', marker, onSelect, base = 'map', terrain = false, className = '', onFly, reverse = false }, ref) {
+const TrailMap = forwardRef(function TrailMap({ trail, focus, month, colorBy = 'region', marker, onSelect, base = 'map', terrain = false, className = '', onFly, reverse = false, points, onPoint, me, activePoint }, ref) {
   const box = useRef(null);
   const map = useRef(null);
   const [ready, setReady] = useState(false);
   const fly = useRef(null);
   const flyToken = useRef(null);
   const props = useRef({});
-  props.current = { onSelect, onFly };
+  props.current = { onSelect, onFly, onPoint };
+  const pins = useRef([]);
+  const meMarker = useRef(null);
 
   // יצירת המפה
   useEffect(() => {
@@ -189,6 +191,33 @@ const TrailMap = forwardRef(function TrailMap({ trail, focus, month, colorBy = '
     if (!ready) return;
     m.getSource('marker').setData({ type: 'FeatureCollection', features: marker ? [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: marker } }] : [] });
   }, [ready, marker]);
+
+  // תחנות (סמנים ממוספרים) ומיקום חי
+  useEffect(() => {
+    const m = map.current;
+    if (!ready) return;
+    pins.current.forEach((p) => p.remove());
+    pins.current = (points || []).map((p) => {
+      const el = document.createElement('button');
+      el.className = `st-pin${p.done ? ' done' : ''}${p.k === activePoint ? ' active' : ''}${p.approx ? ' approx' : ''}`;
+      el.textContent = p.k;
+      el.setAttribute('aria-label', `תחנה ${p.k}: ${p.name}`);
+      el.addEventListener('click', (e) => { e.stopPropagation(); props.current.onPoint?.(p.k); });
+      return new maplibregl.Marker({ element: el }).setLngLat([p.lon, p.lat]).addTo(m);
+    });
+    if (box.current) box.current.dataset.points = String(pins.current.length);
+  }, [ready, points, activePoint]);
+  useEffect(() => {
+    const m = map.current;
+    if (!ready) return;
+    if (!me) { meMarker.current?.remove(); meMarker.current = null; return; }
+    if (!meMarker.current) {
+      const el = document.createElement('span');
+      el.className = 'me-dot';
+      el.title = 'המיקום שלך';
+      meMarker.current = new maplibregl.Marker({ element: el }).setLngLat([me[1], me[0]]).addTo(m);
+    } else meMarker.current.setLngLat([me[1], me[0]]);
+  }, [ready, me]);
 
   useImperativeHandle(ref, () => ({
     /** טיסה לאורך מקטע. מחזירה פונקציית עצירה. */

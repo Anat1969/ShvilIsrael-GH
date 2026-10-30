@@ -192,9 +192,47 @@ ok((await page.locator('.cal-day.walk').count()) === 56, 'calendar shows every w
 ok((await page.locator('.cal-month').count()) >= 2, 'calendar spans the months of the trip');
 ok(/מק' 1/.test(await page.locator('.cal-day.walk').first().textContent()), 'first calendar day is section 1');
 
+// מדריך בכיס
+const { GUIDE } = await import('../src/data/stations.js');
+await page.goto(`${ROOT}/guide`);
+ok((await page.locator('.gi-card').count()) === 56, 'pocket guide index lists all 56 sections');
+await page.goto(`${ROOT}/s/6/guide`);
+await mapReady(page, '.g-map .tmap');
+const nSt = GUIDE[6].stations.length;
+ok((await page.locator('.station-card').count()) === nSt, `section 6 guide: ${nSt} stations`);
+await page.waitForSelector(`.g-map .tmap[data-points="${nSt}"]`);
+ok(true, 'stations are pinned on the map');
+ok((await page.locator('.g-know blockquote cite a').getAttribute('href')).includes('sefaria'), 'region quote links to its source');
+ok((await page.locator('.haiku span').count()) === 3, 'region haiku has three lines');
+const pts = async () => Number(await page.locator('.score-num b').textContent());
+await page.locator('.station-card').first().locator('button', { hasText: 'סימון: הגעתי' }).click();
+ok((await pts()) === 10, 'marking arrival scores 10');
+await page.locator('.station-card').first().locator('button', { hasText: 'סימון: עשיתי את המשימה' }).click();
+ok((await pts()) === 15, 'observation task scores 5');
+await page.locator('.quiz-opts button').first().click();
+ok((await pts()) === 35 && (await page.locator('.quiz .tone-solution').count()) === 1, 'right quiz answer scores 20 and is confirmed');
+ok(await page.locator('.quiz-opts button').first().isDisabled(), 'quiz can be answered once');
+await page.reload();
+await page.waitForSelector('.score-num b');
+ok((await pts()) === 35, 'guide progress survives reload');
+ok((await page.locator('.btn').first().evaluate((el) => getComputedStyle(el).borderRadius)) === '0px', 'buttons are square');
+// מיקום חי: ליד תחנה => הגעה אוטומטית
+const gctx = await browser.newContext({ viewport: { width: 1366, height: 900 }, geolocation: { latitude: 32.9754, longitude: 35.4284 }, permissions: ['geolocation'] });
+await mockAll(gctx);
+const gp = await gctx.newPage();
+watch(gp);
+await gp.goto(`${ROOT}/s/6/guide`);
+await gp.waitForSelector('.station-card');
+await gp.locator('button', { hasText: 'הפעלת מיקום' }).click();
+await gp.waitForSelector('.gps-dist', { timeout: 10000 });
+await gp.waitForTimeout(500);
+ok(/אושר במיקום/.test(await gp.locator('.station-card', { hasText: 'עין זבד' }).textContent()), 'GPS within 150 m of a station marks it as reached');
+ok(/בכיוון/.test(await gp.locator('.gps-dist').textContent()), 'GPS panel gives distance and direction to the next station');
+await gctx.close();
+
 // ניווט
 await page.goto(ROOT);
-for (const [label, path] of [['עונות וטבע', '/seasons'], ['תכנון מסע', '/plan'], ['השביל', '/']]) {
+for (const [label, path] of [['מדריך', '/guide'], ['עונות', '/seasons'], ['תכנון', '/plan'], ['השביל', '/']]) {
   await page.locator('.nav a', { hasText: label }).click();
   await page.waitForTimeout(300);
   ok(new URL(page.url()).pathname === path, `nav: ${label}`);
@@ -216,7 +254,7 @@ const m = await browser.newContext({ viewport: { width: 390, height: 844 }, devi
 await mockAll(m);
 const mp = await m.newPage();
 watch(mp);
-for (const path of ['/', '/seasons', '/plan', '/s/1', '/s/33', '/s/56']) {
+for (const path of ['/', '/seasons', '/plan', '/guide', '/s/6/guide', '/s/1', '/s/33', '/s/56']) {
   await mp.goto(ROOT + path);
   await mp.waitForTimeout(900);
   const w = await mp.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);

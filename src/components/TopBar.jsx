@@ -11,6 +11,7 @@ export default function TopBar() {
       </Link>
       <nav className="nav" aria-label="ניווט ראשי">
         <NavLink to="/" end>השביל</NavLink>
+        <NavLink to="/guide">מדריך<span className="nav-more"> בכיס</span></NavLink>
         <NavLink to="/seasons">עונות<span className="nav-more"> וטבע</span></NavLink>
         <NavLink to="/plan">תכנון<span className="nav-more"> מסע</span></NavLink>
       </nav>

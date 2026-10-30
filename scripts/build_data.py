@@ -361,7 +361,7 @@ SPECIES = [
     ('שקנאי מצוי', 'Pelecanus onocrotalus', 'migration', 'להקות לבנות עוצרות בבריכות הדגים בסתיו.'),
     ('עקב חורף', 'Buteo buteo', 'migration', 'עקב הערבות: מאות אלפים חוצים את אילת באביב.'),
     ('דיה שחורה', 'Milvus migrans', 'migration', 'מהעופות הדורסים הנודדים הנפוצים מעל הערבה.'),
-    ('דבוראי מצוי', 'Merops apiaster', 'migration', 'צבעוני וקולני, מגיע באביב לקנן בגדות עפר.'),
+    ('שרקרק מצוי', 'Merops apiaster', 'migration', 'צבעוני וקולני, מגיע באביב לקנן בגדות עפר.'),
     ('יעל נובי', 'Capra nubiana', 'wildlife', 'חיים במצוקי המדבר, מעין גדי ועד הרי אילת.'),
 ]
 BANDS = {'north': (32.45, 33.5), 'center': (31.35, 32.45), 'south': (29.4, 31.35)}
@@ -455,8 +455,51 @@ def build_photos():
               open(os.path.join(GEN, 'wiki.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
 
 
+# ---------------------------------------------------------------- stations
+def build_stations():
+    """מיקום תחנות המדריך בכיס: חיפוש ב-Nominatim (OpenStreetMap) בתוך תיבת המקטע, וחיתוך לתוואי."""
+    src = open(os.path.join(ROOT, 'src', 'data', 'stations.js'), encoding='utf8').read()
+    trail = json.load(open(os.path.join(OUT, 'trail.json')))
+    out = {}
+    # פירוק פשוט של הקובץ: מספר מקטע, ואז שמות התחנות ושדות q
+    blocks = re.split(r'\n  (\d+): \{', src)[1:]
+    for num, body in zip(blocks[0::2], blocks[1::2]):
+        n = int(num)
+        sec = trail['sections'][n - 1]
+        line = [(c[1], c[0]) for c in sec['geom']]
+        w, s_, e, nn = sec['bbox']
+        res = []
+        for i, m in enumerate(re.finditer(r"st\('((?:[^'\\]|\\.)*)',.*?\)(?:,\n|\n)", body, re.S)):
+            name = m.group(1).replace("\\'", "'")
+            qm = re.search(r"q: '((?:[^'\\]|\\.)*)'", m.group(0))
+            q = (qm.group(1) if qm else name).replace("\\'", "'")
+            hit = None
+            for bounded in (1, 0):
+                url = ('https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=il&accept-language=he'
+                       f'&viewbox={w - 0.06},{nn + 0.06},{e + 0.06},{s_ - 0.06}&bounded={bounded}&q=' + urllib.parse.quote(q))
+                d = cached('nom-' + re.sub(r'\W', '_', f'{n}-{q}-{bounded}') + '.json', lambda: (time.sleep(1.1), get(url))[1])
+                for c in d:
+                    pt = (float(c['lat']), float(c['lon']))
+                    dist = min(hav(pt, p) for p in line)
+                    if dist < 4 and (hit is None or dist < hit[1]):
+                        hit = (pt, dist)
+                if hit:
+                    break
+            if hit:
+                pt, dist = hit
+                j = min(range(len(line)), key=lambda k: hav(pt, line[k]))
+                km = sum(hav(line[k], line[k + 1]) for k in range(j))
+                res.append({'i': i, 'lat': round(pt[0], 5), 'lon': round(pt[1], 5), 'km': round(km, 2), 'off': round(dist, 2)})
+            else:
+                res.append({'i': i, 'lat': None, 'lon': None, 'km': None, 'off': None})
+            print(f"  #{n} {name}: {'%.2f km off, at %.1f' % (hit[1], res[-1]['km']) if hit else 'not found'}")
+        out[n] = res
+    json.dump({'source': 'OpenStreetMap via Nominatim, snapped to the trail', 'sections': out},
+              open(os.path.join(GEN, 'stations.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
+
+
 if __name__ == '__main__':
     steps = sys.argv[1:] or ['trail', 'climate', 'nature', 'photos']
     for st in steps:
         print('==', st)
-        {'trail': build_trail, 'climate': build_climate, 'power': build_climate_power, 'nature': build_nature, 'photos': build_photos}[st]()
+        {'trail': build_trail, 'climate': build_climate, 'power': build_climate_power, 'nature': build_nature, 'photos': build_photos, 'stations': build_stations}[st]()
