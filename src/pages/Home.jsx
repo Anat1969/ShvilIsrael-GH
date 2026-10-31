@@ -12,10 +12,10 @@ import Verdict from '../components/Verdict.jsx';
 import Sign from '../components/Sign.jsx';
 import SectionSigns from '../components/SectionSigns.jsx';
 import SignLegend from '../components/SignLegend.jsx';
-import { PROFILES, profileById } from '../lib/profiles.js';
+import { PROFILES, profileById, bestMonths } from '../lib/profiles.js';
 import Photo from '../components/Photo.jsx';
 import { ALL, REGIONS, SUBREGIONS, OVERVIEW, TOTAL_KM, MONTHS, MONTHS_SHORT, loadTrail, sectionAtKm, fmt } from '../lib/data.js';
-import { suitability, SCALE, currentMonth, difficulty } from '../lib/season.js';
+import { suitability, SCALE, currentMonth, difficulty, scoreColor } from '../lib/season.js';
 import { eventsInMonth, monthsText, KINDS } from '../lib/phenomena.js';
 import { moonEvents } from '../lib/moon.js';
 import { useWalked } from '../lib/walked.js';
@@ -112,6 +112,7 @@ export default function Home() {
             ))}
           </div>
           {profile && <p className="profile-rule"><b>{profile.name}:</b> {profile.rule} <mark>{highlight.length} מקטעים מתאימים.</mark></p>}
+          {profile && <WhenToGo profile={profile} month={month} onPick={(m) => set('m', m)} />}
         </div>
       </section>
 
@@ -289,5 +290,28 @@ function Spark({ s }) {
       <path d={`${d}L0,28L100,28Z`} fill="var(--c)" opacity="0.18" />
       <path d={d} fill="none" stroke="var(--c)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
     </svg>
+  );
+}
+
+/** מתי לצאת: פס של 12 חודשים, מימין לשמאל. גובה העמודה: מקטעים מתאימים בדרגת טוב ומעלה. */
+function WhenToGo({ profile, month, onPick }) {
+  const { months, top, tops, max } = bestMonths(profile);
+  const names = tops.map((m) => MONTHS[m - 1]);
+  const best = names.length > 1 ? `${names.slice(0, -1).join(', ')} ו${names[names.length - 1]}` : names[0];
+  return (
+    <div className="when">
+      <p className="frame-label">מתי לצאת · {profile.name}</p>
+      <p className="when-best">{tops.length ? <mark>הכי טוב: {best}. {tops.length > 1 ? 'בשיא' : 'בו'}: {top.n} מקטעים ({fmt(top.km)} ק"מ) מתאימים ובדרגת טוב ומעלה.</mark> : <mark>אין חודש שבו מקטע מתאים מגיע לדרגת טוב.</mark>}</p>
+      <div className="when-bars" role="group" aria-label="מתי לצאת">
+        {months.map((x) => (
+          <button key={x.m} className={`${x.m === month ? 'on' : ''} ${tops.includes(x.m) ? 'top' : ''}`} onClick={() => onPick(x.m)} title={`${MONTHS[x.m - 1]}: ${x.n} מקטעים בדרגת טוב ומעלה, ${fmt(x.km)} ק"מ. מדד: ${Math.round((x.q / max) * 100)}`} aria-pressed={x.m === month}>
+            <span className="when-bar"><i style={{ height: `${(x.q / max) * 100}%`, background: scoreColor(x.q / max) }} /></span>
+            <b className="mono">{x.n}</b>
+            <small>{MONTHS_SHORT[x.m - 1]}</small>
+          </button>
+        ))}
+      </div>
+      <p className="muted small">המספר: מקטעים שמתאימים לפרופיל ומקבלים באותו חודש ציון 60 ומעלה. גובה העמודה וצבעה: ציון ההתאמה כפול האורך, על כל המקטעים שמתאימים לפרופיל, ביחס לחודש הטוב ביותר. כך נמדדים גם הכמות וגם האיכות. לחיצה בוחרת את החודש.</p>
+    </div>
   );
 }
