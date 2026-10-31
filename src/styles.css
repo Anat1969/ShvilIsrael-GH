@@ -441,7 +441,7 @@ section.method { background: var(--paper); border-radius: 20px; padding: 22px; b
 
 /* חי, צומח, דומם, שמיים */
 .kind-tag { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: color-mix(in srgb, var(--k) 14%, #fff); color: var(--k); font-weight: 700; font-size: 0.78rem; border: 1px solid color-mix(in srgb, var(--k) 40%, #fff); }
-.kind-tag::before { content: ''; width: 8px; height: 8px; border-radius: 2px; background: var(--k); }
+.kind-tag::before { content: none; }
 .events { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 .ev-group > ul { list-style: none; margin: 6px 0 0; padding: 0 12px 0 0; border-right: 3px solid var(--k); display: grid; gap: 4px; }
 .ev-group li > button, .ev-group li > span { display: grid; background: none; border: 0; padding: 2px 0; text-align: right; }
@@ -680,3 +680,49 @@ button:disabled { cursor: default; opacity: 0.55; }
   .certificate h1 { font-size: 3rem; }
   body { background: #fff; }
 }
+
+/* שפת הסימנים */
+.sign { display: inline-block; vertical-align: middle; flex: 0 0 auto; }
+.sign-count { display: inline-flex; align-items: center; gap: 1px; }
+.sign-count b { font-size: 0.7rem; margin-inline-start: 2px; }
+.sec-signs { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; align-items: center; }
+.sg-group { display: inline-flex; gap: 5px; align-items: center; }
+.sg-kinds { padding-inline-start: 10px; border-inline-start: 1px solid var(--line); }
+.sg { display: inline-flex; align-items: center; }
+.sg.em { outline: 2px solid var(--orange); outline-offset: 2px; background: #fff8ec; }
+.sec-row.dim { opacity: 0.38; }
+.sec-row.dim:hover { opacity: 0.8; }
+.why { font-size: 0.74rem !important; white-space: normal !important; margin-top: 2px; }
+.why.yes { color: var(--go) !important; }
+.why.no { color: var(--ink-3) !important; }
+.profiles { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 10px; background: var(--paper); border: 1px solid var(--line); font-size: 0.85rem; font-weight: 600; border-radius: 0; box-shadow: 0 1px 2px rgba(20,22,26,.12), 0 4px 10px -6px rgba(20,22,26,.35); transition: transform .15s, box-shadow .15s; }
+.chip-btn:hover { transform: translateY(-2px); }
+.chip-btn:active { transform: translateY(1px); }
+.chip-btn.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.profile-rule { font-size: 0.85rem; margin: 0; }
+.sign-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 0.8rem; margin: 6px 0; }
+.sl-item { display: inline-flex; align-items: center; gap: 5px; }
+.sl-note { flex-basis: 100%; color: var(--ink-3); font-size: 0.72rem; }
+.kind-tag { gap: 5px; }
+.kind-filter { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.kind-filter .chip-btn b { font-size: 0.75rem; opacity: 0.85; }
+.meet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; }
+.meet-col ul { list-style: none; padding: 0 12px 0 0; margin: 8px 0 0; border-right: 3px solid var(--k); display: grid; gap: 6px; }
+.meet-col li { display: grid; }
+.meet-col li b { font-size: 0.9rem; font-weight: 600; }
+.meet-col li small { color: var(--ink-3); font-size: 0.7rem; }
+.cal-ev { display: flex; gap: 1px; margin-top: 2px; }
+.day-ev { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.dev { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--ink-2); white-space: nowrap; }
+.field-signs { margin-bottom: 14px; }
+.field-signs ul { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 8px; }
+.field-signs li { display: grid; grid-template-columns: 70px auto minmax(0, 1fr); gap: 4px 10px; align-items: start; font-size: 0.85rem; }
+.field-signs li b { white-space: nowrap; }
+.field-signs q { color: var(--ink-2); font-size: 0.8rem; }
+.field-signs q::before { content: '"'; } .field-signs q::after { content: '"'; }
+@media (max-width: 560px) { .field-signs li { grid-template-columns: 56px minmax(0, 1fr); } .field-signs q { grid-column: 1 / -1; } }
+.today { margin-bottom: 20px; }
+.today-list { list-style: none; padding: 0; margin: 10px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 8px 16px; }
+.today-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 2px 8px; padding: 6px 10px; border-right: 3px solid var(--k); background: color-mix(in srgb, var(--k) 6%, #fff); }
+.today-list li small { grid-column: 2; color: var(--ink-2); font-size: 0.78rem; }

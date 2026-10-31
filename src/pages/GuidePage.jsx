@@ -7,6 +7,10 @@ import Photo from '../components/Photo.jsx';
 import { ALL, loadTrail, fmt } from '../lib/data.js';
 import { difficulty } from '../lib/season.js';
 import { KNOWLEDGE } from '../data/knowledge.js';
+import { KINDS } from '../data/phenomena.js';
+import { dayEvents } from '../lib/profiles.js';
+import SectionSigns from '../components/SectionSigns.jsx';
+import Sign from '../components/Sign.jsx';
 import { stationsFor, quizFor, maxPoints, useGuide, usePosition, meters, direction, speak, stopSpeaking, POINTS, ARRIVE_M } from '../lib/guide.js';
 
 export default function GuidePage() {
@@ -129,6 +133,8 @@ export default function GuidePage() {
         </section>
       )}
 
+      <TodayHere s={s} />
+
       <section className="g-map">
         <div className="atlas-map tall">
           <span className="frame-title">מפת התחנות{gps.status === 'on' ? ' · המיקום שלך מסומן' : ''}</span>
@@ -226,5 +232,24 @@ export default function GuidePage() {
       </nav>
       <p className="muted small foot-note">בהשראת הסיורים העצמאיים של goBeeTravel: תחנות, ניווט, הקראה, משימות וניקוד. כאן הכול חינם, בלי הרשמה ובלי שרת.</p>
     </main>
+  );
+}
+
+/** מה קורה היום במקטע: חי, צומח, דומם ושמיים של החודש, ואירועי שמיים בתאריך. */
+function TodayHere({ s }) {
+  const today = new Date();
+  const ev = dayEvents([s.n], today);
+  return (
+    <section className="today card">
+      <p className="frame-label">היום במקטע · {today.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' })}</p>
+      <SectionSigns s={s} month={today.getMonth() + 1} size={22} />
+      {ev.length > 0 ? (
+        <ul className="today-list">
+          {ev.map((e) => (
+            <li key={e.name} style={{ '--k': KINDS[e.kind].color }}><Sign name={e.kind} size={18} /><b>{e.name}</b>{e.note && <small>{e.note}</small>}</li>
+          ))}
+        </ul>
+      ) : <p className="muted small">אין החודש תופעה עונתית בולטת במקטע. הגאולוגיה והנוף כאן כל השנה.</p>}
+    </section>
   );
 }

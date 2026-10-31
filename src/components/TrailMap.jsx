@@ -58,7 +58,7 @@ export function pointAt(coords, km) {
   return coords[coords.length - 1];
 }
 
-const TrailMap = forwardRef(function TrailMap({ trail, focus, month, colorBy = 'region', marker, onSelect, base = 'map', terrain = false, className = '', onFly, reverse = false, points, onPoint, me, activePoint }, ref) {
+const TrailMap = forwardRef(function TrailMap({ trail, focus, month, colorBy = 'region', marker, onSelect, base = 'map', terrain = false, className = '', onFly, reverse = false, points, onPoint, me, activePoint, highlight }, ref) {
   const box = useRef(null);
   const map = useRef(null);
   const [ready, setReady] = useState(false);
@@ -148,12 +148,22 @@ const TrailMap = forwardRef(function TrailMap({ trail, focus, month, colorBy = '
     m.getSource('ends').setData(ends(trail));
   }, [ready, trail, month, colorBy]);
 
+  // סינון לפי פרופיל מטייל: מקטעים שלא מתאימים מתעמעמים
+  useEffect(() => {
+    const m = map.current;
+    if (!ready || focus) return;
+    m.setPaintProperty('trail', 'line-opacity', highlight ? ['case', ['in', ['get', 'n'], ['literal', highlight]], 1, 0.18] : 1);
+    m.setPaintProperty('trail-case', 'line-opacity', highlight ? ['case', ['in', ['get', 'n'], ['literal', highlight]], 0.95, 0.15] : 0.9);
+    if (box.current) box.current.dataset.highlight = highlight ? String(highlight.length) : '';
+  }, [ready, highlight, focus]);
+
   // מיקוד במקטע
   useEffect(() => {
     const m = map.current;
     if (!ready || !trail) return;
-    m.setPaintProperty('trail', 'line-opacity', focus ? ['case', ['==', ['get', 'n'], focus], 1, 0.35] : 1);
-    m.setPaintProperty('trail-case', 'line-opacity', focus ? ['case', ['==', ['get', 'n'], focus], 0.95, 0.25] : 0.9);
+    const hl = highlight ? ['in', ['get', 'n'], ['literal', highlight]] : null;
+    m.setPaintProperty('trail', 'line-opacity', focus ? ['case', ['==', ['get', 'n'], focus], 1, 0.35] : hl ? ['case', hl, 1, 0.18] : 1);
+    m.setPaintProperty('trail-case', 'line-opacity', focus ? ['case', ['==', ['get', 'n'], focus], 0.95, 0.25] : hl ? ['case', hl, 0.95, 0.15] : 0.9);
     const t = focus && trail.sections.find((x) => x.n === focus);
     if (t) m.fitBounds([[t.bbox[0], t.bbox[1]], [t.bbox[2], t.bbox[3]]], { padding: 50, duration: 1200, maxZoom: 13.5, pitch: terrain ? 55 : 0 });
     else m.fitBounds([[34.25, 29.45], [35.95, 33.35]], { padding: 30, duration: 1200, pitch: terrain ? 45 : 0 });
