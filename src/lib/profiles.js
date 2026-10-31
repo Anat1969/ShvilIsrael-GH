@@ -34,9 +34,31 @@ export function dayEvents(sections, date) {
 const HERITAGE = /תל |חורבת|חירבת|מבצר|מצודת|מצודה|עתיק|קדום|קדומ|מקדש|כנסיי|בית כנסת|אמת המים|אמות|מכרות|טחנ|דרך הבשמים|רומי|צלבני|לכיש|ציפורי|מצדה|לטרון|קיסריה|אפולוניה/;
 
 /** שישה פרופילי מטיילים. לכל אחד כלל שקוף, ו-test שמחזיר התאמה ונימוק. */
+// בונוסים לפי פרופיל, בנקודות (0.01 = נקודה), עם נימוק.
+function natureBonus(s, m) {
+  const ev = monthEvents(s.n, m).filter((e) => e.kind === 'chai' || e.kind === 'tzomeach');
+  return { v: Math.min(0.15, ev.length * 0.05), why: ev.length ? `${ev.length} תופעות חי וצומח` : '' };
+}
+const STRONG_SHOWERS = /פרסאידים|גמינידים|קוודרנטידים/;
+function skyBonus(s, m) {
+  const sh = ALL_EVENTS.filter((e) => e.kind === 'shamayim' && e.date && /^מטר/.test(e.name) && Number(e.date.slice(0, 2)) === m && inSection(e, s.n));
+  const v = sh.reduce((a, e) => a + (STRONG_SHOWERS.test(e.name) ? 0.12 : 0.04), 0);
+  return { v: Math.min(0.15, v), why: sh.map((e) => e.name).join(', ') };
+}
+
+/** ציון אישי: אותם רכיבים של suitability, במשקלים של הפרופיל, ועוד בונוס מנומק. */
+export function profileScore(profile, s, m) {
+  const r = suitability(s, m);
+  const w = profile.weights || {};
+  const sum = r.factors.reduce((a, f) => a + f.effect * (w[f.key] ?? 1), 0);
+  const b = profile.bonus ? profile.bonus(s, m) : { v: 0 };
+  return Math.max(0, 1 + sum + b.v); // בלי חיתוך מלמעלה: בונוס מעל 100 מבחין בין חודשים טובים
+}
+
 export const PROFILES = [
   {
     id: 'family', name: 'משפחות', sign: 'family',
+    weights: { heat: 2, rain: 1.5, light: 1.5 }, weightNote: 'חום כפול, בוץ ואור יום פי 1.5: ילדים רגישים לחום ולחשכה.',
     rule: 'קושי קל או בינוני (עד 18 ק"מ־מאמץ). מודגשים צל ומים.',
     test: (s) => {
       const d = difficulty(s);
@@ -46,6 +68,7 @@ export const PROFILES = [
   },
   {
     id: 'thru', name: 'שביליסטים', sign: 'thru',
+    weights: { light: 1.5 }, weightNote: 'אור יום פי 1.5: ימי הליכה ארוכים ברצף.',
     rule: 'כל המקטעים. מודגשים לינה, תחבורה ואור יום.',
     test: (s) => {
       const f = factsFor(s.n);
@@ -54,6 +77,7 @@ export const PROFILES = [
   },
   {
     id: 'day', name: 'מטיילי יום', sign: 'day',
+    weights: { light: 0.5 }, weightNote: 'אור יום חצי משקל: יום אחד, אפשר לצאת מוקדם.',
     rule: 'יש תחבורה ציבורית לפי המדריך, וקושי עד 26 ק"מ־מאמץ.',
     test: (s) => {
       const f = factsFor(s.n);
@@ -63,6 +87,7 @@ export const PROFILES = [
   },
   {
     id: 'nature', name: 'צפרים וחובבי טבע', sign: 'nature',
+    weights: { experience: 3 }, bonus: natureBonus, weightNote: 'חוויה עונתית פי 3, ועד 15 נקודות לנדידה ופריחה בחודש.',
     rule: 'יש במקטע נדידה או פריחה בחודש שנבחר.',
     test: (s, month) => {
       const ev = monthEvents(s.n, month).filter((e) => e.kind === 'chai' || e.kind === 'tzomeach');
@@ -71,6 +96,7 @@ export const PROFILES = [
   },
   {
     id: 'history', name: 'היסטוריה וארכאולוגיה', sign: 'history',
+    weights: { heat: 1.3, experience: 0.5 }, weightNote: 'חום פי 1.3: אתרים חשופים ושהייה ארוכה בהם. חוויה עונתית חצי משקל.',
     rule: 'יש במדריך בכיס תחנה של אתר עתיק או היסטורי.',
     test: (s) => {
       const st = (GUIDE[s.n]?.stations || []).filter((x) => HERITAGE.test(`${x.name} ${x.story}`));
@@ -79,6 +105,7 @@ export const PROFILES = [
   },
   {
     id: 'sky', name: 'צילום ושמיים', sign: 'sky',
+    weights: { rain: 2, heat: 0.6, experience: 0.5 }, bonus: skyBonus, weightNote: 'עננות (גשם) כפולה, חום 0.6 כי הפעילות בלילה, ובונוס למטרי מטאורים.',
     rule: 'מדבר עם שמיים חשוכים, או תופעת שמיים ונוף גאולוגי במקטע.',
     test: (s) => {
       const geo = ALL_EVENTS.filter((e) => inSection(e, s.n) && (e.geo || (e.kind === 'shamayim' && !e.date)));
@@ -102,9 +129,9 @@ export function bestMonths(profile) {
     let n = 0; let km = 0; let q = 0;
     ALL.forEach((s) => {
       if (!profile.test(s, m).match) return;
-      const sc = suitability(s, m).score;
+      const sc = profileScore(profile, s, m);
       q += sc * s.length;
-      if (sc >= 0.6) { n += 1; km += s.length; }
+      if (Math.min(1, sc) >= 0.6) { n += 1; km += s.length; }
     });
     return { m, n, km, q };
   });

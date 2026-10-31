@@ -21,7 +21,6 @@ export default function GuidePage() {
   const reverse = params.get('dir') === 'sn';
   const [trail, setTrail] = useState(null);
   const [active, setActive] = useState(1);
-  const [open, setOpen] = useState(() => new Set());
   const [speaking, setSpeaking] = useState(null);
   const [base, setBase] = useState('map');
   const [terrain, setTerrain] = useState(false);
@@ -58,10 +57,11 @@ export default function GuidePage() {
     }
   }, [near]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const go = (kk) => {
-    setActive(kk);
-    refs.current[kk]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  // בחירה ברשימה או במפה: התחנה נפתחת ליד המפה, בלי לגלול. "לכרטיס המלא" גולל אליו.
+  const go = (kk) => setActive(kk);
+  const toCard = (kk) => refs.current[kk]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const answerSq = (x, j) => update((g) => (g.sq[x.i] ? g : { ...g, sq: { ...g.sq, [x.i]: { picked: j, correct: j === x.sq.a } } }));
+  const cur = stations.find((x) => x.k === active) || stations[0];
   const read = (x) => {
     if (speaking === x.k) { stopSpeaking(); setSpeaking(null); return; }
     const ok = speak(`תחנה ${x.k}. ${x.name}. ${x.story} תשימו לב: ${x.look}`, () => setSpeaking(null));
@@ -78,7 +78,7 @@ export default function GuidePage() {
     return { ...g, look: l };
   });
   const answer = (i) => update((g) => (g.quiz ? g : { ...g, quiz: { picked: i, correct: i === quiz.a } }));
-  const reset = () => update(() => ({ visited: {}, look: {}, quiz: null }));
+  const reset = () => update(() => ({ visited: {}, look: {}, sq: {}, quiz: null }));
 
   if (!stations.length && trail) {
     return <main className="guide"><p className="muted">אין עדיין תחנות למקטע הזה.</p></main>;
@@ -172,6 +172,19 @@ export default function GuidePage() {
               </li>
             ))}
           </ol>
+          {cur && (
+            <div className="active-st" aria-live="polite">
+              <p className="frame-label">תחנה {cur.k} על המפה</p>
+              <Photo wiki={[`he:${cur.wiki || cur.name}`, ...s.wiki]} name={cur.name} color={s.color} />
+              <h3>{cur.name}</h3>
+              <p className="active-story">{cur.story}</p>
+              <p className="small"><b>תשימו לב:</b> {cur.look}</p>
+              <div className="row">
+                <button className="btn-quiet" onClick={() => read(cur)} aria-pressed={speaking === cur.k}>{speaking === cur.k ? 'עצירה' : 'הקראה'}</button>
+                <button className="btn-quiet" onClick={() => toCard(cur.k)}>לכרטיס המלא ולחידה</button>
+              </div>
+            </div>
+          )}
         </aside>
       </section>
 
@@ -180,21 +193,21 @@ export default function GuidePage() {
           <article key={x.k} ref={(el) => { refs.current[x.k] = el; }} className={`station-card ${active === x.k ? 'on' : ''}`} onMouseEnter={() => setActive(x.k)}>
             <Photo wiki={[`he:${x.wiki || x.name}`, ...s.wiki]} name={x.name} color={s.color} />
             <div className="st-body">
-              <p className="mono eyebrow">תחנה {x.k} מתוך {stations.length} · ק"מ {fmt(x.km, 1)}{x.approx ? ' · משוער' : ''}</p>
+              <p className="mono eyebrow">תחנה {x.k} מתוך {stations.length} · ק"מ {fmt(x.km, 1)} מ{from}{x.approx ? ' · מיקום משוער' : ''}</p>
               <h2>{x.name}</h2>
-              <p className={`st-story ${open.has(x.k) ? 'open' : ''}`}>{x.story}</p>
-              <button className="more" onClick={() => setOpen((o) => { const n = new Set(o); n.has(x.k) ? n.delete(x.k) : n.add(x.k); return n; })} aria-expanded={open.has(x.k)}>{open.has(x.k) ? 'קיצור' : 'המשך הסיפור'}</button>
+              <p className="st-story">{x.story}</p>
               <div className="look tone-insight">
                 <b>תשימו לב</b>
                 <p>{x.look}</p>
               </div>
+              {x.sq && <StationQuiz x={x} res={state.sq[x.i]} onAnswer={(j) => answerSq(x, j)} />}
               <div className="row">
-                <button className="btn-quiet" onClick={() => read(x)} aria-pressed={speaking === x.k}>{speaking === x.k ? 'עצירה' : 'הקראה'}</button>
+                <button className="btn-quiet" onClick={() => read(x)} aria-pressed={speaking === x.k}>{speaking === x.k ? 'עצירת ההקראה' : 'הקראה בקול'}</button>
                 <button className={`check ${state.visited[x.i] ? 'on' : ''}`} aria-pressed={!!state.visited[x.i]} onClick={() => markVisit(x)}>
-                  {state.visited[x.i] === 'gps' ? 'הגעתי (במיקום)' : state.visited[x.i] ? 'הגעתי' : 'הגעתי?'}
+                  {state.visited[x.i] === 'gps' ? 'הגעתי (אושר במיקום)' : state.visited[x.i] ? 'הגעתי' : 'סימון: הגעתי'}
                 </button>
                 <button className={`check ${state.look[x.i] ? 'on' : ''}`} aria-pressed={!!state.look[x.i]} onClick={() => markLook(x)}>
-                  {state.look[x.i] ? 'המשימה בוצעה' : 'המשימה?'}
+                  {state.look[x.i] ? 'עשיתי את המשימה' : 'סימון: עשיתי את המשימה'}
                 </button>
               </div>
               {speaking === 'none' && <p className="muted small">ההקראה לא זמינה בדפדפן הזה.</p>}
@@ -252,5 +265,21 @@ function TodayHere({ s }) {
         </ul>
       ) : <p className="muted small">אין החודש תופעה עונתית בולטת במקטע. הגאולוגיה והנוף כאן כל השנה.</p>}
     </section>
+  );
+}
+
+/** חידת תחנה: שלוש תשובות, עונים פעם אחת. התשובה מופיעה בסיפור של התחנה. */
+function StationQuiz({ x, res, onAnswer }) {
+  return (
+    <div className="st-quiz">
+      <p className="small"><b>חידת התחנה · {POINTS.sq} נקודות:</b> {x.sq.q}</p>
+      <div className="st-quiz-opts">
+        {x.sq.options.map((o, j) => {
+          const cls = !res ? '' : j === x.sq.a ? 'right' : j === res.picked ? 'wrong' : '';
+          return <button key={o} className={`btn-quiet ${cls}`} disabled={!!res} onClick={() => onAnswer(j)}>{o}</button>;
+        })}
+      </div>
+      {res && <p className={`small ${res.correct ? 'tone-solution' : 'tone-problem'}`}>{res.correct ? 'נכון.' : `התשובה: ${x.sq.options[x.sq.a]}.`} הרמז היה בסיפור.</p>}
+    </div>
   );
 }

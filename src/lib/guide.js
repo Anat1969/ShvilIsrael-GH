@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
+import { STATION_QUIZ } from '../data/stationQuiz.js';
 import { GUIDE } from '../data/stations.js';
 import placed from '../data/generated/stations.json';
 import { pointAt } from '../components/TrailMap.jsx';
 
 // מדריך בכיס: תחנות, ניקוד ומיקום. הכול בדפדפן, בלי שרת ובלי תשלום.
-export const POINTS = { visit: 10, gps: 10, look: 5, quiz: 20 };
+export const POINTS = { visit: 10, gps: 10, look: 5, sq: 5, quiz: 20 };
 export const ARRIVE_M = 150;
 
 /** התחנות של מקטע בסדר ההליכה, עם מיקום על התוואי. */
@@ -19,7 +20,7 @@ export function stationsFor(n, trailSection, reverse = false) {
     if (s.at === 'end') km = L;
     else if (s.at === 'start') km = 0;
     else if (km == null && typeof s.at === 'number') km = s.at;
-    return { ...s, i, km, lat: p.lat, lon: p.lon, off: p.off };
+    return { ...s, i, km, lat: p.lat, lon: p.lon, off: p.off, sq: stationQuiz(n, i) };
   });
   // תחנה בלי מיקום: באמצע בין השכנות שלה
   list.forEach((s, i) => {
@@ -42,8 +43,18 @@ export function stationsFor(n, trailSection, reverse = false) {
 }
 
 export const quizFor = (n) => GUIDE[n]?.quiz || null;
+
+/** חידת התחנה. סדר התשובות מסובב באופן קבוע לפי המקטע והתחנה, כדי שהתשובה הנכונה לא תהיה תמיד באותו מקום. */
+export function stationQuiz(n, i) {
+  const base = STATION_QUIZ[n]?.[i];
+  if (!base) return null;
+  const L = base.options.length;
+  const r = (n * 7 + i * 5) % L;
+  const options = base.options.map((_, j) => base.options[(j + r) % L]);
+  return { q: base.q, options, a: (base.a - r + L) % L };
+}
 export const stationCount = (n) => GUIDE[n]?.stations.length || 0;
-export const maxPoints = (n) => stationCount(n) * (POINTS.visit + POINTS.gps + POINTS.look) + (quizFor(n) ? POINTS.quiz : 0);
+export const maxPoints = (n) => stationCount(n) * (POINTS.visit + POINTS.gps + POINTS.look + POINTS.sq) + (quizFor(n) ? POINTS.quiz : 0);
 
 const KEY = 'shvil-guide';
 const read = () => {
@@ -58,15 +69,15 @@ export function useGuide(n) {
     window.addEventListener('guide-change', sync);
     return () => window.removeEventListener('guide-change', sync);
   }, []);
-  const mine = all[n] || { visited: {}, look: {}, quiz: null };
+  const mine = { visited: {}, look: {}, sq: {}, quiz: null, ...(all[n] || {}) };
   const update = useCallback((fn) => {
     const cur = read();
-    const next = { ...cur, [n]: fn(cur[n] || { visited: {}, look: {}, quiz: null }) };
+    const next = { ...cur, [n]: fn({ visited: {}, look: {}, sq: {}, quiz: null, ...(cur[n] || {}) }) };
     try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* מצב פרטי */ }
     window.dispatchEvent(new Event('guide-change'));
   }, [n]);
   const points = Object.values(mine.visited).reduce((a, v) => a + POINTS.visit + (v === 'gps' ? POINTS.gps : 0), 0)
-    + Object.keys(mine.look).length * POINTS.look + (mine.quiz?.correct ? POINTS.quiz : 0);
+    + Object.keys(mine.look).length * POINTS.look + Object.values(mine.sq).filter((v) => v.correct).length * POINTS.sq + (mine.quiz?.correct ? POINTS.quiz : 0);
   return { state: mine, update, points, all };
 }
 
