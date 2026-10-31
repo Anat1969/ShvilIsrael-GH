@@ -1,6 +1,7 @@
 import factsData from '../data/generated/facts.json';
 import { GUIDE } from '../data/stations.js';
-import { difficulty } from './season.js';
+import { difficulty, suitability } from './season.js';
+import { ALL } from './data.js';
 import { ALL_EVENTS, inSection } from './phenomena.js';
 import { moonOn } from './moon.js';
 
@@ -87,3 +88,30 @@ export const PROFILES = [
   },
 ];
 export const profileById = (id) => PROFILES.find((p) => p.id === id);
+
+/**
+ * מתי לצאת. לכל חודש: n = מקטעים שמתאימים לפרופיל ובציון 60 ומעלה, km = האורך שלהם,
+ * ו-q = סכום (ציון × אורך) על כל המקטעים שמתאימים לפרופיל. q הוא הדירוג: ספירה מעל סף
+ * בלבד נותנת תיקו בכל חודשי החורף, ו-q מבחין גם בגשם קל, בפריחה ובחום מתון.
+ */
+const bestCache = new Map();
+export function bestMonths(profile) {
+  if (bestCache.has(profile.id)) return bestCache.get(profile.id);
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const m = i + 1;
+    let n = 0; let km = 0; let q = 0;
+    ALL.forEach((s) => {
+      if (!profile.test(s, m).match) return;
+      const sc = suitability(s, m).score;
+      q += sc * s.length;
+      if (sc >= 0.6) { n += 1; km += s.length; }
+    });
+    return { m, n, km, q };
+  });
+  const top = months.reduce((a, b) => (b.q > a.q ? b : a));
+  // חודשים בטווח של 2% מהשיא מוצגים יחד, כדי לא לבחור אחד באופן שרירותי
+  const tops = months.filter((x) => x.q > 0 && x.q >= top.q * 0.98).map((x) => x.m);
+  const res = { months, top, tops, max: Math.max(1e-9, top.q) };
+  bestCache.set(profile.id, res);
+  return res;
+}

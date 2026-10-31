@@ -21,6 +21,7 @@ export default function GuidePage() {
   const reverse = params.get('dir') === 'sn';
   const [trail, setTrail] = useState(null);
   const [active, setActive] = useState(1);
+  const [open, setOpen] = useState(() => new Set());
   const [speaking, setSpeaking] = useState(null);
   const [base, setBase] = useState('map');
   const [terrain, setTerrain] = useState(false);
@@ -175,30 +176,30 @@ export default function GuidePage() {
       </section>
 
       <section className="stations">
-        {stations.map((x, idx) => (
-          <motion.article key={x.k} ref={(el) => { refs.current[x.k] = el; }} className={`station-card ${idx % 2 ? 'flip' : ''} ${active === x.k ? 'on' : ''}`}
-            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-60px' }} onMouseEnter={() => setActive(x.k)}>
+        {stations.map((x) => (
+          <article key={x.k} ref={(el) => { refs.current[x.k] = el; }} className={`station-card ${active === x.k ? 'on' : ''}`} onMouseEnter={() => setActive(x.k)}>
             <Photo wiki={[`he:${x.wiki || x.name}`, ...s.wiki]} name={x.name} color={s.color} />
             <div className="st-body">
-              <p className="mono eyebrow">תחנה {x.k} מתוך {stations.length} · ק"מ {fmt(x.km, 1)} מ{from}{x.approx ? ' · מיקום משוער' : ''}</p>
+              <p className="mono eyebrow">תחנה {x.k} מתוך {stations.length} · ק"מ {fmt(x.km, 1)}{x.approx ? ' · משוער' : ''}</p>
               <h2>{x.name}</h2>
-              <p className="st-story">{x.story}</p>
+              <p className={`st-story ${open.has(x.k) ? 'open' : ''}`}>{x.story}</p>
+              <button className="more" onClick={() => setOpen((o) => { const n = new Set(o); n.has(x.k) ? n.delete(x.k) : n.add(x.k); return n; })} aria-expanded={open.has(x.k)}>{open.has(x.k) ? 'קיצור' : 'המשך הסיפור'}</button>
               <div className="look tone-insight">
                 <b>תשימו לב</b>
                 <p>{x.look}</p>
               </div>
               <div className="row">
-                <button className="btn-quiet" onClick={() => read(x)} aria-pressed={speaking === x.k}>{speaking === x.k ? 'עצירת ההקראה' : 'הקראה בקול'}</button>
+                <button className="btn-quiet" onClick={() => read(x)} aria-pressed={speaking === x.k}>{speaking === x.k ? 'עצירה' : 'הקראה'}</button>
                 <button className={`check ${state.visited[x.i] ? 'on' : ''}`} aria-pressed={!!state.visited[x.i]} onClick={() => markVisit(x)}>
-                  {state.visited[x.i] === 'gps' ? 'הגעתי (אושר במיקום)' : state.visited[x.i] ? 'הגעתי' : 'סימון: הגעתי'}
+                  {state.visited[x.i] === 'gps' ? 'הגעתי (במיקום)' : state.visited[x.i] ? 'הגעתי' : 'הגעתי?'}
                 </button>
                 <button className={`check ${state.look[x.i] ? 'on' : ''}`} aria-pressed={!!state.look[x.i]} onClick={() => markLook(x)}>
-                  {state.look[x.i] ? 'עשיתי את המשימה' : 'סימון: עשיתי את המשימה'}
+                  {state.look[x.i] ? 'המשימה בוצעה' : 'המשימה?'}
                 </button>
               </div>
               {speaking === 'none' && <p className="muted small">ההקראה לא זמינה בדפדפן הזה.</p>}
             </div>
-          </motion.article>
+          </article>
         ))}
       </section>
 
