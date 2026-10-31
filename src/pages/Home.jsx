@@ -9,6 +9,10 @@ import SeasonStrip from '../components/SeasonStrip.jsx';
 import ScaleLegend from '../components/ScaleLegend.jsx';
 import KindTag from '../components/KindTag.jsx';
 import Verdict from '../components/Verdict.jsx';
+import Sign from '../components/Sign.jsx';
+import SectionSigns from '../components/SectionSigns.jsx';
+import SignLegend from '../components/SignLegend.jsx';
+import { PROFILES, profileById } from '../lib/profiles.js';
 import Photo from '../components/Photo.jsx';
 import { ALL, REGIONS, SUBREGIONS, OVERVIEW, TOTAL_KM, MONTHS, MONTHS_SHORT, loadTrail, sectionAtKm, fmt } from '../lib/data.js';
 import { suitability, SCALE, currentMonth, difficulty } from '../lib/season.js';
@@ -31,6 +35,10 @@ export default function Home() {
   const month = Number(params.get('m')) || currentMonth();
   const colorBy = params.get('c') === 'region' ? 'region' : 'season';
   const focus = Number(params.get('s')) || null;
+  const profile = profileById(params.get('p'));
+  const matches = useMemo(() => (profile ? ALL.map((s) => profile.test(s, month)) : null), [profile, month]);
+  const highlight = matches ? ALL.filter((s, i) => matches[i].match).map((s) => s.n) : null;
+  const EMPH = { family: ['family', 'shade', 'water'], thru: ['tent', 'bus'], day: ['bus', 'family'], nature: ['chai', 'tzomeach'], history: [], sky: ['shamayim', 'domem'] };
   const [base, setBase] = useState('map');
   const [terrain, setTerrain] = useState(false);
   const [hoverKm, setHoverKm] = useState(null);
@@ -48,7 +56,7 @@ export default function Home() {
   const counts = Object.fromEntries(SCALE.map((b) => [b.id, 0]));
   levels.forEach((l) => { counts[l.level] += 1; });
   const kmGood = ALL.reduce((n, s, i) => n + (levels[i].score >= 0.6 ? s.length : 0), 0);
-  const picks = ALL.map((s, i) => ({ s, r: levels[i] })).sort((a, b) => b.r.score - a.r.score).slice(0, 4);
+  const picks = ALL.map((s, i) => ({ s, r: levels[i], m: matches?.[i] })).filter((x) => !x.m || x.m.match).sort((a, b) => b.r.score - a.r.score).slice(0, 4);
   const events = eventsInMonth(month);
   const year = new Date().getFullYear();
   const moon = moonEvents(year, month);
@@ -95,13 +103,22 @@ export default function Home() {
               <button className={colorBy === 'region' ? 'on' : ''} aria-pressed={colorBy === 'region'} onClick={() => set('c', 'region')}>אזורים</button>
             </div>
           </div>
+          <span className="ctl-label">איזה מטייל אני</span>
+          <div className="profiles" role="group" aria-label="סוג מטייל">
+            {PROFILES.map((pr) => (
+              <button key={pr.id} className={`chip-btn ${profile?.id === pr.id ? 'on' : ''}`} aria-pressed={profile?.id === pr.id} onClick={() => set('p', profile?.id === pr.id ? null : pr.id)} title={pr.rule}>
+                <Sign name={pr.sign} size={20} color={profile?.id === pr.id ? '#fff' : undefined} />{pr.name}
+              </button>
+            ))}
+          </div>
+          {profile && <p className="profile-rule"><b>{profile.name}:</b> {profile.rule} <mark>{highlight.length} מקטעים מתאימים.</mark></p>}
         </div>
       </section>
 
       <section className="atlas">
         <div className="atlas-map">
           <span className="frame-title">מפת השביל · {colorBy === 'season' ? `התאמה ל${MONTHS[month - 1]}` : 'חמשת האזורים'}</span>
-          <TrailMap ref={mapRef} trail={trail} month={month} colorBy={colorBy} focus={focus} marker={markerPt} base={base} terrain={terrain} onSelect={goTo} />
+          <TrailMap ref={mapRef} trail={trail} month={month} colorBy={colorBy} focus={focus} highlight={highlight} marker={markerPt} base={base} terrain={terrain} onSelect={goTo} />
           <Legend colorBy={colorBy} base={base} setBase={setBase} terrain={terrain} setTerrain={setTerrain} monthName={MONTHS[month - 1]} />
           {!trail && <div className="map-loading mono">טוען את התוואי</div>}
         </div>
@@ -202,6 +219,7 @@ export default function Home() {
         <header className="regions-head">
           <h2>56 המקטעים, לפי אזורים</h2>
           <ScaleLegend title="פס החודשים בכל שורה: התאמה לטיול" bloom />
+          <SignLegend />
         </header>
         {REGIONS.map((r) => {
           const list = ALL.filter((s) => s.region.id === r.id);
@@ -228,17 +246,23 @@ export default function Home() {
                     <span className="sec-head-months">{MONTHS_SHORT.map((m, i) => <i key={m} className={month === i + 1 ? 'on' : ''}>{m}</i>)}</span>
                   </div>
                   <ol className="sec-list">
-                    {list.filter((s) => s.sub.id === sr.id).map((s) => (
+                    {list.filter((s) => s.sub.id === sr.id).map((s) => {
+                      const m = matches?.[s.n - 1];
+                      return (
                       <li key={s.n}>
-                        <button className={`sec-row ${walked.has(s.n) ? 'walked' : ''}`} onClick={() => nav(`/s/${s.n}`)}>
+                        <button className={`sec-row ${walked.has(s.n) ? 'walked' : ''} ${m && !m.match ? 'dim' : ''}`} onClick={() => nav(`/s/${s.n}`)}>
                           <span className="sec-n mono">{s.n}</span>
-                          <span className="sec-name"><b>{s.from} – {s.to}</b><small>{s.sites.slice(0, 3).join(' · ')}</small></span>
+                          <span className="sec-name"><b>{s.from} – {s.to}</b><small>{s.sites.slice(0, 3).join(' · ')}</small>
+                            <SectionSigns s={s} month={month} emphasis={profile ? EMPH[profile.id] : []} />
+                            {m && m.why && <small className={`why ${m.match ? 'yes' : 'no'}`}>{m.match ? 'מתאים: ' : 'פחות מתאים: '}{m.why}</small>}
+                          </span>
                           <Spark s={s} />
                           <span className="sec-km mono"><span><b>{fmt(s.length, 1)}</b> ק"מ</span><small className="sec-diff" style={{ color: difficulty(s).color }}>{difficulty(s).name}</small><small>{fmt(s.up)}+ מ'</small></span>
                           <SeasonStrip s={s} month={month} />
                         </button>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ol>
                 </div>
               ))}

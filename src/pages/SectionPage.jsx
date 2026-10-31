@@ -19,6 +19,8 @@ import { sunTimes, clock } from '../lib/sun.js';
 import { forecast, recentNature } from '../lib/live.js';
 import { useWalked } from '../lib/walked.js';
 import Thumb from '../components/Thumb.jsx';
+import Sign, { Count } from '../components/Sign.jsx';
+import { factsFor, FACTS_SOURCE } from '../lib/profiles.js';
 import { stationCount } from '../lib/guide.js';
 
 export default function SectionPage() {
@@ -124,6 +126,7 @@ export default function SectionPage() {
       <section className="s-grid">
         <article className="card">
           <h2>מה בדרך</h2>
+          <FieldSigns s={s} />
           <ul className="sites">{s.sites.map((x) => <li key={x}>{x}</li>)}</ul>
           <a className="btn" href={s.url} target="_blank" rel="noreferrer">המדריך הרשמי של המקטע</a>
           <p className="muted small">תיאור הדרך, נקודות מים ולינה, קיצורים ותחבורה ציבורית: באתר החברה להגנת הטבע. לפני יציאה כדאי לבדוק גם את <a href="https://www.teva.org.il/israel-national-trail" target="_blank" rel="noreferrer">עדכוני השביל</a>.</p>
@@ -272,5 +275,30 @@ function MonthDots({ list, month }) {
     <span className="mdots" aria-hidden="true">
       {MONTHS_SHORT.map((m, i) => <i key={m} className={`${list.includes(i + 1) ? 'in' : ''} ${month === i + 1 ? 'cur' : ''}`} title={m} />)}
     </span>
+  );
+}
+
+/** סימני שטח מהמדריך הרשמי, וליד כל סימן המשפט המקורי שעליו הוא נשען. */
+function FieldSigns({ s }) {
+  const f = factsFor(s.n);
+  const rows = [
+    { sign: <Count name="water" n={Math.max(1, f.water || 0)} size={20} />, show: f.water > 0 && !f.noWater, name: 'מים', text: f.waterText },
+    { sign: <Sign name="water" size={20} color="#b8372a" />, show: f.noWater, name: 'אין מים', text: f.waterText },
+    { sign: <Sign name="tent" size={20} />, show: f.nightCamps > 0, name: 'חניון לילה', text: f.nightText },
+    { sign: <Sign name={f.shade === 'shade' ? 'shade' : 'sun'} size={20} />, show: f.shade !== 'partial' && !!f.shadeText, name: f.shade === 'shade' ? 'מוצל' : 'חשוף לשמש', text: f.shadeText },
+    { sign: <Sign name="bus" size={20} />, show: !!f.busText, name: f.bus ? 'תחבורה ציבורית' : 'בלי תחבורה ציבורית', text: f.busText },
+  ].filter((r) => r.show);
+  if (!rows.length) return null;
+  return (
+    <div className="field-signs">
+      <p className="frame-label">סימני שטח, לפי המדריך הרשמי</p>
+      <ul>
+        {rows.map((r) => (
+          <li key={r.name}><span className="fs-sign">{r.sign}</span><b>{r.name}</b><q>{r.text}</q></li>
+        ))}
+      </ul>
+      {f.lodge && <p className="small">לינה מומלצת באזור: <b>{f.lodge}</b></p>}
+      <p className="muted small">מקור: {FACTS_SOURCE}. ציטוטים קצרים לצורך הסימון; המלא במדריך.</p>
+    </div>
   );
 }

@@ -9,6 +9,12 @@ import { SCALE, scoreColor } from '../lib/season.js';
 import { buildPlan, scanStarts, planFromQuery, planToQuery, toISO } from '../lib/plan.js';
 import { clock } from '../lib/sun.js';
 import { moonOn } from '../lib/moon.js';
+import { dayEvents } from '../lib/profiles.js';
+import { KINDS } from '../data/phenomena.js';
+import KindTag from '../components/KindTag.jsx';
+import Sign from '../components/Sign.jsx';
+
+const KIND_ORDER = ['chai', 'tzomeach', 'domem', 'shamayim'];
 
 const KEY = 'shvil-plan';
 const WEEKDAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
@@ -41,6 +47,20 @@ export default function PlanPage() {
   const lo = ALL[Math.min(p.from, p.to) - 1];
   const hi = ALL[Math.max(p.from, p.to) - 1];
   const bands = plan.walk.map((d, i) => ({ n: i, from: Math.min(d.startKm, d.endKm), to: Math.max(d.startKm, d.endKm), color: d.suit.color, dim: i % 2 === 1 }));
+  // מה קורה בכל יום: תופעות החודש במקטעים של אותו יום, ואירועי שמיים בתאריך עצמו
+  const [kinds, setKinds] = useState(KIND_ORDER);
+  const evByDay = useMemo(() => plan.days.map((d) => (d.type === 'walk' ? dayEvents([...new Set(d.sections)], d.date) : [])), [plan]);
+  const shown = (list) => list.filter((e) => kinds.includes(e.kind));
+  const toggleKind = (k) => setKinds((ks) => (ks.includes(k) ? ks.filter((x) => x !== k) : [...ks, k]));
+  const meet = useMemo(() => {
+    const map = new Map();
+    evByDay.forEach((list, i) => list.forEach((e) => {
+      const key = e.name;
+      if (!map.has(key)) map.set(key, { e, first: i, days: 0 });
+      map.get(key).days += 1;
+    }));
+    return [...map.values()];
+  }, [evByDay]);
   const totalUp = plan.walk.reduce((n, d) => n + d.up, 0);
   const totalH = plan.walk.reduce((n, d) => n + d.hours, 0);
   const longDay = plan.walk.filter((d) => d.hours > d.sun.daylight - 1.5).length;
@@ -63,6 +83,7 @@ export default function PlanPage() {
     score: d.suit?.score,
     suit: d.suit,
     t: d.suit?.t,
+    ev: evByDay[i] || [],
   }));
 
   return (
@@ -137,9 +158,44 @@ export default function PlanPage() {
         </div>
       </section>
 
+      <section className="card meet">
+        <h2 className="frame-h">במסע שלך: חי, צומח, דומם ושמיים <small className="mono">לפי המקום והתאריך של כל יום</small></h2>
+        <div className="kind-filter" role="group" aria-label="סינון לפי משפחה">
+          {KIND_ORDER.map((k) => {
+            const c = meet.filter((x) => x.e.kind === k).length;
+            return (
+              <button key={k} className={`chip-btn ${kinds.includes(k) ? 'on' : ''}`} aria-pressed={kinds.includes(k)} onClick={() => toggleKind(k)} style={kinds.includes(k) ? { background: KINDS[k].color, borderColor: KINDS[k].color } : undefined}>
+                <Sign name={k} size={18} color={kinds.includes(k) ? '#fff' : undefined} />{KINDS[k].name}<b className="mono">{c}</b>
+              </button>
+            );
+          })}
+        </div>
+        <div className="meet-grid">
+          {KIND_ORDER.filter((k) => kinds.includes(k)).map((k) => {
+            const list = meet.filter((x) => x.e.kind === k).sort((a, b) => a.first - b.first);
+            if (!list.length) return null;
+            return (
+              <div key={k} className="meet-col" style={{ '--k': KINDS[k].color }}>
+                <KindTag kind={k} />
+                <ul>
+                  {list.slice(0, 12).map(({ e, first, days }) => (
+                    <li key={e.name}>
+                      <b>{e.name}</b>
+                      <small className="mono">יום {first + 1}, {plan.days[first].date.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}{days > 1 ? ` · ${days} ימים במסע` : ''}</small>
+                    </li>
+                  ))}
+                  {list.length > 12 && <li className="muted small">ועוד {list.length - 12}</li>}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+        <p className="muted small">הסינון חל גם על לוח המסע ועל הטבלה. גאולוגיה ותופעות של כל השנה מופיעות בעמוד כל מקטע.</p>
+      </section>
+
       <section className="card">
-        <h2 className="frame-h">לוח המסע <small className="mono">כל יום בצבע ההתאמה, עם מספר המקטע והקילומטרים</small></h2>
-        <CalendarView days={plan.days} />
+        <h2 className="frame-h">לוח המסע <small className="mono">כל יום בצבע ההתאמה, עם מספר המקטע, הקילומטרים ומה קורה בדרך</small></h2>
+        <CalendarView days={plan.days} events={evByDay.map(shown)} />
         <ScaleLegend title="צבע היום: התאמה לטיול" />
       </section>
 
@@ -176,6 +232,7 @@ export default function PlanPage() {
             { key: 'hours', label: 'שעות', render: (r) => (r.km ? hours(r.hours) : '') },
             { key: 'sun', label: 'אור יום', render: (r) => (r.sun ? `${clock(r.sun.rise)}–${clock(r.sun.set)}` : ''), sort: (r) => r.sun?.daylight ?? 0 },
             { key: 't', label: 'חום ממוצע', render: (r) => (r.t != null ? `${Math.round(r.t)}°` : '') },
+            { key: 'ev', label: 'בדרך', render: (r) => <span className="day-ev">{shown(r.ev).map((e) => <span key={e.name} className="dev" style={{ '--k': KINDS[e.kind].color }}><Sign name={e.kind} size={14} />{e.name}</span>)}</span>, sort: (r) => shown(r.ev).length },
             { key: 'score', label: 'התאמה', render: (r) => (r.suit ? <span className="chip" style={{ background: r.suit.color }}>{r.suit.label}</span> : ''), sort: (r) => r.score ?? -1 },
           ]}
         />
@@ -186,9 +243,9 @@ export default function PlanPage() {
 }
 
 /** לוח חודשי: שבוע מימין לשמאל, ראשון מימין. כל יום מסע צבוע לפי ההתאמה. */
-function CalendarView({ days }) {
+function CalendarView({ days, events = [] }) {
   if (!days.length) return null;
-  const byDate = new Map(days.map((d, i) => [toISO(d.date), { ...d, i: i + 1 }]));
+  const byDate = new Map(days.map((d, i) => [toISO(d.date), { ...d, i: i + 1, ev: events[i] || [] }]));
   const first = days[0].date;
   const last = days[days.length - 1].date;
   const months = [];
@@ -216,11 +273,12 @@ function CalendarView({ days }) {
                     key={i}
                     className={`cal-day ${rest ? 'rest' : 'walk'}`}
                     style={rest ? undefined : { background: day.suit.color }}
-                    title={rest ? `יום ${day.i}: מנוחה` : `יום ${day.i}: מקטע ${sec.join(', ')}, ${fmt(day.km, 1)} ק"מ, ${day.suit.label}`}
+                    title={rest ? `יום ${day.i}: מנוחה` : `יום ${day.i}: מקטע ${sec.join(', ')}, ${fmt(day.km, 1)} ק"מ, ${day.suit.label}${day.ev.length ? `. בדרך: ${day.ev.map((e) => e.name).join(', ')}` : ''}`}
                   >
                     <b>{d.getDate()}</b>
                     <small>{rest ? 'מנוחה' : `מק' ${sec.length > 1 ? `${sec[0]}–${sec[sec.length - 1]}` : sec[0]}`}</small>
                     {!rest && <small className="mono">{fmt(day.km, 0)} ק"מ</small>}
+                    {!rest && day.ev.length > 0 && <span className="cal-ev">{KIND_ORDER.filter((k) => day.ev.some((e) => e.kind === k)).map((k) => <Sign key={k} name={k} size={11} color="#fff" />)}</span>}
                     {moon && <em className={`cal-moon ${moon}`} title={moon === 'full' ? 'ירח מלא' : 'מולד'} />}
                   </span>
                 );

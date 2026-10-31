@@ -498,8 +498,88 @@ def build_stations():
               open(os.path.join(GEN, 'stations.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
 
 
+# ---------------------------------------------------------------- facts
+def build_facts():
+    """סימני שטח מהמדריכים של החברה להגנת הטבע: תחבורה ציבורית, נקודות מים, לינה וצל.
+    לכל סימן נשמר המשפט המקורי מהמדריך, כדי שהממשק יציג את המקור לצד הסימן."""
+    def clean(x):
+        return re.sub(r'[\U0001F000-\U0001FFFF\u2600-\u27BF\uFE0F\u200d\u2B50\u2B55]', '', x).strip()
+    src = open(os.path.join(ROOT, 'src', 'data', 'sections.js'), encoding='utf8').read()
+    urls = dict((int(a), b) for a, b in re.findall(r"s\((\d+), '[^']+', '[^']+', [\d.]+, '([^']+)'", src))
+    out = {}
+    for n in range(1, 57):
+        p = os.path.join(CACHE, 'teva', f'{n}.txt')
+        if not os.path.exists(p):
+            raw = get('https://www.teva.org.il/israel-national-trail/' + urls[n], binary=True).decode('utf8', 'ignore')
+            raw = re.sub(r'<script.*?</script>|<style.*?</style>', '', raw, flags=re.S)
+            import html as H
+            open(p, 'w').write(H.unescape(re.sub(r'<[^>]+>', '\n', raw)))
+            time.sleep(1)
+        L = [clean(l) for l in open(p).read().split('\n')]
+        L = [l for l in L if l]
+        i0 = L.index('סגור את החיפוש') if 'סגור את החיפוש' in L else 0
+        i1 = next((k for k, l in enumerate(L) if l.startswith(('עוד סיפורים מהטבע', 'רוצים לשמור', 'רוצות לשמור'))), len(L))
+        L = L[i0:i1]
+        T = '\n'.join(L)
+        # תחבורה ציבורית: השורה שאחרי הכותרת
+        bus_txt = ''
+        for i, l in enumerate(L):
+            if 'נגישות לתחבורה ציבורית' in l:
+                rest = l.split('ציבורית', 1)[1].strip(' .:')
+                nxt = L[i + 1] if i + 1 < len(L) else ''
+                bus_txt = rest if len(rest) > 8 else nxt
+                if l.startswith('אין') or rest.startswith('אין'):
+                    bus_txt = l
+                break
+        if bus_txt.startswith(('לרכישת', 'מפת', 'מידע')):
+            bus_txt = ''
+        bus = None if not bus_txt else (False if re.match(r'^(אין|לא נגיש|לנקודת ההתחלה לא ניתן)', bus_txt) and 'מגיעים' not in bus_txt else True)
+        # מים: אזכורים של ברז, מילוי מים או מי שתייה (בלי "ברזל")
+        water = []
+        for m in re.finditer(r'[^.\n]{0,90}(?:ברז(?!ל)|ברזי(?!ל)|מילוי מים|למלא מים|מי שתייה|מקור מים לשתייה|נקודות מילוי והצטיידות במים)[^.\n]{0,90}', T):
+            sent = m.group(0).strip(' :')
+            if 'לא לשתות' in sent:
+                continue
+            water.append(sent)
+        no_water = any('אין מקור מים' in w or 'אין ברז' in w for w in water)
+        # לינה
+        rec = ''
+        for i, l in enumerate(L):
+            if l.startswith('המלצת לינה'):
+                rec = L[i + 1] if i + 1 < len(L) else ''
+                break
+        nights = re.findall(r'[^.\n]{0,60}חניון (?:ה)?לילה[^.\n]{0,60}', T)
+        # צל: אזכורים של צל מול חשיפה לשמש
+        shade_hits = len(re.findall(r'מוצל|בצל |בצל העצים|בצל החורש|צל העצים|בין עצים|חורש|יער', T))
+        exposed = re.search(r'[^.\n]{0,40}(?:חשוף (?:ברובו )?לשמש|חשופה לשמש|חשופים לשמש|ללא צל|בלי צל|אין צל)[^.\n]{0,40}', T)
+        exposed_n = len(re.findall(r'חשוף (?:ברובו )?לשמש|חשופה לשמש|חשופים לשמש|ללא צל|בלי צל|אין צל', T))
+        strong_exp = re.search(r'(?:השביל|המסלול|המקטע)[^.\n]{0,25}חשוף', T)
+        strong_shade = re.search(r'רובו[^.\n]{0,20}בצל|מוצל ברובו', T)
+        if strong_exp and not strong_shade:
+            shade = 'exposed'
+        elif strong_shade or (shade_hits >= 6 and shade_hits > 3 * exposed_n):
+            shade = 'shade'
+        elif (exposed and shade_hits < 6) or (n >= 31 and shade_hits < 3):
+            shade = 'exposed'
+        else:
+            shade = 'partial'
+        if strong_exp and not strong_shade:
+            exposed = exposed or strong_exp
+        shade_q = exposed.group(0).strip() if shade == 'exposed' and exposed else next(iter(re.findall(r'[^.\n]{0,60}(?:מוצל|בצל )[^.\n]{0,60}', T)), '')
+        out[n] = {
+            'bus': bus, 'busText': bus_txt[:180],
+            'water': len(water), 'waterText': water[0][:180] if water else '', 'noWater': no_water,
+            'lodge': rec[:120], 'nightCamps': len(nights), 'nightText': nights[0].strip()[:160] if nights else '',
+            'shade': shade, 'shadeText': shade_q[:160],
+        }
+        f = out[n]
+        print(f"  #{n}: bus {f['bus']} water {f['water']}{' (none)' if f['noWater'] else ''} camps {f['nightCamps']} shade {f['shade']}")
+    json.dump({'source': 'המדריכים של החברה להגנת הטבע לכל מקטע (teva.org.il)', 'sections': out},
+              open(os.path.join(GEN, 'facts.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
+
+
 if __name__ == '__main__':
     steps = sys.argv[1:] or ['trail', 'climate', 'nature', 'photos']
     for st in steps:
         print('==', st)
-        {'trail': build_trail, 'climate': build_climate, 'power': build_climate_power, 'nature': build_nature, 'photos': build_photos, 'stations': build_stations}[st]()
+        {'trail': build_trail, 'climate': build_climate, 'power': build_climate_power, 'nature': build_nature, 'photos': build_photos, 'stations': build_stations, 'facts': build_facts}[st]()
