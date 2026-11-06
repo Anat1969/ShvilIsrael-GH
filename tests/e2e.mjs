@@ -46,6 +46,7 @@ async function mockAll(ctx) {
   });
   await ctx.route(/img\.test|inaturalist-open-data|static\.inaturalist|openstreetmap|arcgisonline|elevation-tiles-prod/, (r) => r.fulfill({ contentType: 'image/png', body: png }));
   await ctx.route(/appofapp-gh\.vercel\.app\/ai-menu\.js/, (r) => r.fulfill({ contentType: 'text/javascript', body: menu }));
+  await ctx.route(/arc-and-bina\.vercel\.app\/bridge\.js/, (r) => r.fulfill({ contentType: 'text/javascript', body: '' }));
   await ctx.route(/fonts\.(googleapis|gstatic)/, (r) => r.abort());
 }
 
